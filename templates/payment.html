@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% block title %}Payment{% endblock %}
+{% block content %}
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    font-family: 'Chakra Petch', sans-serif;
+  }
+  .center-wrapper {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    box-sizing: border-box;
+  }
+  .modal-content {
+    background: rgba(0, 0, 0, 0.9);
+    padding: 2rem;
+    border-radius: 12px;
+    width: 100%;
+    max-width: 420px;
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: white;
+  }
+</style>
+
+<main class="center-wrapper">
+  <div class="modal-content">
+    <h2 style="margin-top: 0;">Complete Your Payment</h2>
+    <p style="color: rgba(255, 255, 255, 0.8); margin-bottom: 1.5rem;">
+      Hi {{ current_user.first_name }}, please complete your payment to access the app.
+    </p>
+
+    <div style="
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      padding: 1.2rem;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.02);
+      margin-bottom: 1.5rem;
+    ">
+      <h3 style="margin: 0 0 0.5rem;">App Access</h3>
+      <p style="margin: 0 0 0.5rem;">One-time payment for full app access</p>
+      <h4 style="margin: 0;">Price: $1.00</h4>
+    </div>
+
+    <form method="POST">
+      <button type="submit" class="btn primary" style="
+        background: white;
+        color: black;
+        padding: 0.75rem 1.5rem;
+        border: none;
+        border-radius: 6px;
+        font-size: 1rem;
+        cursor: pointer;
+        width: 100%;
+      ">
+        Pay $1.00 with Stripe
+      </button>
+    </form>
+
+    <p style="margin-top: 1.5rem; font-size: 0.9rem; text-align: center; color: rgba(255, 255, 255, 0.6);">
+      <small>Secure payment processed by Stripe</small><br>
+      <a href="{{ url_for('logout') }}" style="color: white; text-decoration: underline;">Logout</a>
+    </p>
+  </div>
+</main>
+{% endblock %}

@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ASACAM – AI Video Monitoring</title>
+  <link rel="icon" type="image/png" href="favicon.png" />
+
+  <!-- Fonts & main stylesheet -->
+  <link rel="preconnect" href="https://fonts.gstatic.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="static/style.css" />
+  <link rel="stylesheet" href="static/modal.css" />
+</head>
+<style>
+
+</style>
+<body>
+  <div id="particles-js"></div>
+  <nav>
+    <div class="logo">ASACAM</div>
+    <div class="nav-links">
+      <a href="/" class="active">Home</a>
+      <a href="/analytics">Analytics</a>
+      <a href="/settings">Settings</a>
+    </div>
+  </nav>
+
+  <main>
+    <div class="hero">
+      <h1>Welcome to Asacam</h1>
+      <p class="subtitle">AI-powered video monitoring system</p>
+      
+      <div class="cta-buttons">
+        <button class="btn secondary" id="startMissionBtn" type="button" style="font-family: 'Chakra Petch', sans-serif;">Start Mission</button>
+        <button class="btn secondary" id="ViewMissionBtn" type="button" style="font-family: 'Chakra Petch', sans-serif;">View Missions</button>
+      </div>
+    </div>
+
+    <div class="features">
+      <div class="feature-card">
+        <h3>Real-time Monitoring</h3>
+        <p>24/7 AI-powered video analysis</p>
+      </div>
+      <div class="feature-card">
+        <h3>Smart Alerts</h3>
+        <p>Instant notifications for security events</p>
+      </div>
+      <div class="feature-card">
+        <h3>Easy Search</h3>
+        <p>Find events quickly with AI search</p>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <p>&copy; 2024 Asacam. All rights reserved.</p>
+  </footer>
+
+  <!-- Particles.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/particles.js@2.0.0/particles.min.js"></script>
+  <script>
+    particlesJS.load('particles-js', 'particles.json', function() {
+      console.log('particles.js loaded - callback');
+    });
+  </script>
+  <script>
+    // Fallback config if particles.json is not present
+    if (!window.pJSDom || window.pJSDom.length === 0) {
+      particlesJS('particles-js', {
+        "particles": {
+          "number": {"value": 80, "density": {"enable": true, "value_area": 800}},
+          "color": {"value": "#fff"},
+          "shape": {"type": "circle"},
+          "opacity": {"value": 0.5, "random": false},
+          "size": {"value": 2, "random": true},
+          "line_linked": {"enable": true, "distance": 150, "color": "#fff", "opacity": 0.2, "width": 1},
+          "move": {"enable": true, "speed": 1.2, "direction": "none", "random": false, "straight": false, "out_mode": "out", "bounce": false}
+        },
+        "interactivity": {
+          "detect_on": "canvas",
+          "events": {"onhover": {"enable": true, "mode": "repulse"}, "onclick": {"enable": true, "mode": "push"}, "resize": true},
+          "modes": {"repulse": {"distance": 100, "duration": 0.4}, "push": {"particles_nb": 4}}
+        },
+        "retina_detect": true
+      });
+    }
+  </script>
+  <!-- Mission Creation Modal -->
+  <div id="missionModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header" style="margin-bottom:0;">
+        <h2>Start New Mission</h2>
+      </div>
+      
+      <form id="missionForm" class="modal-body">
+        <div class="form-group" style="margin-top:0;">
+          <label for="missionTitle">Mission Title</label>
+          <input type="text" id="missionTitle" name="mission_title" required />
+        </div>
+
+        <div class="form-group">
+          <label for="missionPrompt">Mission Prompt</label>
+          <textarea id="missionPrompt" name="mission_prompt" required rows="4"></textarea>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="btn secondary" id="cancelBtn">Cancel</button>
+          <button type="submit" class="btn primary" id="submitBtn">Create Mission</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</body>
+<script>
+
+  document.addEventListener('DOMContentLoaded', function(){
+    const modal = document.getElementById('missionModal');
+    const startBtn = document.getElementById('startMissionBtn');
+    const closeBtn = document.getElementById('cancelBtn');
+    const cancelBtn = document.getElementById('cancelBtn');
+    const form = document.getElementById('missionForm');
+
+    // show the modal when start is clicked
+    startBtn.addEventListener('click', function(){
+      modal.classList.add('show');
+    });
+
+    // hide the modal when close is clicked
+    closeBtn.addEventListener('click', function(){
+      modal.classList.remove('show');
+    });
+
+    // hide the moodal when cancel is clicked
+    cancelBtn.addEventListener('click', function(){
+      modal.classList.remove('show');
+    });
+
+    // Hide modal when clicking outside of it
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+            modal.classList.remove('show');
+        }
+    });
+
+    // Show loading overlay
+    function showLoadingOverlay() {
+        const overlay = document.createElement('div');
+        overlay.id = 'loadingOverlay';
+        overlay.className = 'loading-overlay';
+        overlay.innerHTML = `
+            <div class="loading-content">
+                <div class="loading-spinner-large"></div>
+                <p class="loading-text">Preparing your mission...</p>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+        
+        // Prevent scrolling
+        document.body.style.overflow = 'hidden';
+    }
+
+    // Hide loading overlay (optional, for cleanup)
+    function hideLoadingOverlay() {
+        const overlay = document.getElementById('loadingOverlay');
+        if (overlay) {
+            overlay.remove();
+            document.body.style.overflow = '';
+        }
+    }
+
+    //handle submission
+    form.addEventListener('submit', function(e){
+      e.preventDefault();
+
+      // Get form data
+      const missionTitle = document.getElementById('missionTitle').value;
+      const missionPrompt = document.getElementById('missionPrompt').value;
+
+      if (!missionTitle || !missionPrompt){
+        alert('Please fill in both fields');
+        return;
+      }
+
+      // Disable the submit button to prevent double submission
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Creating ... ';
+
+      // Send data to backend
+        fetch('/api/prompt', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                mission_title: missionTitle,
+                mission_prompt: missionPrompt
+            })
+        })
+        .then(response => {
+            if (response.ok) {
+                return response.json();
+            }
+            throw new Error('Network response was not ok');
+        })
+        .then(data => {
+            // Success - show message and close moda
+            modal.classList.remove('show');
+
+            // Show loading overlay
+            showLoadingOverlay(); 
+
+            // redirect after a short delay to let the user see the sucess message
+            setTimeout(() => {
+              window.location.href='/mission';
+            }, 1500);
+        })
+        .catch(error => {
+            // Error - show error message
+            console.error('Error:', error);
+            alert('Error creating mission. Please try again.');
+        })
+        .finally(() => {
+            // Re-enable submit button
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Create Mission';
+        });
+      
+    })
+  });
+</script>
+</html>

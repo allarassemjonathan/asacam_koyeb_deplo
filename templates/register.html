@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}Register{% endblock %}
+
+{% block content %}
+<main>
+  <link rel="stylesheet" href="static/style.css" />
+  <div class="hero">
+     <div style="text-align: center; margin-bottom: 0; padding-bottom:0;">
+    <img src="{{ url_for('static', filename='logo.jpg') }}" alt="ASACAM Logo" style="height: 300px;" />
+    </div>
+  </div>
+
+  <div class="login-container" style="
+    max-width: 400px;
+    margin: 0 auto;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 2rem;
+    border-radius: 8px;
+    z-index: 2;
+    position: relative;
+  ">
+    <form method="POST" style="display: flex; flex-direction: column; gap: 1.5rem;">
+      <div>
+        <label for="first_name" style="display: block; margin-bottom: 0.5rem; color: #fff;">First Name:</label>
+        <input type="text" name="first_name" id="first_name" required style="width: 100%; padding: 0.75rem; border-radius: 4px; border: none; background: #222; color: #fff;" />
+      </div>
+      <div>
+        <label for="last_name" style="display: block; margin-bottom: 0.5rem; color: #fff;">Last Name:</label>
+        <input type="text" name="last_name" id="last_name" required style="width: 100%; padding: 0.75rem; border-radius: 4px; border: none; background: #222; color: #fff;" />
+      </div>
+      <div>
+        <label for="email" style="display: block; margin-bottom: 0.5rem; color: #fff;">Email:</label>
+        <input type="email" name="email" id="email" required style="width: 100%; padding: 0.75rem; border-radius: 4px; border: none; background: #222; color: #fff;" />
+      </div>
+      <div>
+        <label for="password" style="display: block; margin-bottom: 0.5rem; color: #fff;">Password:</label>
+        <input type="password" name="password" id="password" required style="width: 100%; padding: 0.75rem; border-radius: 4px; border: none; background: #222; color: #fff;" />
+      </div>
+      <button type="submit" class="btn" style="width: 100%;">Register</button>
+    </form>
+    <p style="margin-top: 1rem; text-align: center; color: #888;">
+      <a href="{{ url_for('login') }}" style="color: #fff; text-decoration: underline;">Already have an account? Login</a>
+    </p>
+  </div>
+</main>
+{% endblock %}
