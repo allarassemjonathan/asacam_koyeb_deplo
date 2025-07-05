@@ -452,6 +452,7 @@ def initialize_camera():
         if url == '0':
             url = 0
 
+        print('RTSP link:',url)
         camera = cv2.VideoCapture(url)
 
         start_time = time.time()
@@ -566,6 +567,7 @@ def start_stream():
 
     data =  request.get_json()
     url = data.get('url')    
+    print('RTSP link:',url)
 
     if not is_streaming:
         if initialize_camera():
