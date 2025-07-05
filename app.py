@@ -534,24 +534,23 @@ def generate_frames():
                b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
         
         time.sleep(0.033)  # ~30 FPS
-
 @app.route('/video_feed')
 @login_required
 def video_feed():
-    """Video streaming route - fixed version"""
-    global is_streaming
+    global is_streaming, camera
+    logger.info(f"[video_feed] is_streaming: {is_streaming}, camera: {camera}")
     
     try:
-        # Don't initialize camera here, it should be done in start_stream
         if not is_streaming or camera is None:
+            logger.warning("[video_feed] Stream not started")
             return "Stream not started. Click 'Start Stream' first.", 404
-            
+
         return Response(
             generate_frames(),
             mimetype='multipart/x-mixed-replace; boundary=frame',
             headers={
                 'Cache-Control': 'no-cache, no-store, must-revalidate',
-                'Pragma': 'no-cache', 
+                'Pragma': 'no-cache',
                 'Expires': '0'
             }
         )
