@@ -23,6 +23,8 @@ url = 0
 import cv2
 print(cv2.getBuildInformation())
 
+os.environ["OPENCV_FFMPEG_DEBUG"] = "1"
+cap = cv2.VideoCapture("rtsp://...?...", cv2.CAP_FFMPEG)
 
 # Initialize extensions
 db.init_app(app)
