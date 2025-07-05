@@ -12,13 +12,17 @@ import os
 from dotenv import load_dotenv
 
 load_dotenv()
+# camera object to keep track of its state
+class CameraState:
+    is_streaming = False
+    url = None
+    camera = None
 
 # Initialize Flask app
 app = Flask(__name__)
 app.config.from_object(Config)
 prompt="Act as a security monitor. Describe what you see and alert if anything dangerous is happening."
 title='Security Monitoring'
-url = 0
 
 import cv2
 print(cv2.getBuildInformation())
@@ -436,29 +440,27 @@ CORS(app)
 # Global variables for video processing
 video_queue = queue.Queue(maxsize=10)
 description_queue = queue.Queue(maxsize=50)
-is_streaming = False
-camera = None
+
 def initialize_camera():
     """Robust camera initialization that allows long waits"""
-    global camera, url
 
     MAX_WAIT = 600  # seconds
     LOG_INTERVAL = 5
 
     try:
-        if camera is not None:
-            camera.release()
+        if CameraState.camera is not None:
+            CameraState.camera.release()
 
-        if url == '0':
-            url = 0
+        if CameraState.url == '0':
+            CameraState.url = 0
 
-        print('RTSP link:',url)
-        camera = cv2.VideoCapture(url)
+        print('RTSP link:',CameraState.url)
+        CameraState.camera = cv2.VideoCapture(CameraState.url)
 
         start_time = time.time()
         last_log = 0
 
-        while not camera.isOpened():
+        while not CameraState.camera.isOpened():
             elapsed = time.time() - start_time
             if elapsed > MAX_WAIT:
                 logger.error(f"Camera failed to open after {MAX_WAIT} seconds.")
@@ -471,17 +473,17 @@ def initialize_camera():
             time.sleep(1)
 
         # Optional: Lower resolution to save memory
-        camera.set(cv2.CAP_PROP_FRAME_WIDTH, 320)
-        camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
+        CameraState.camera.set(cv2.CAP_PROP_FRAME_WIDTH, 320)
+        CameraState.camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
 
-        ret, _ = camera.read()
+        ret, _ = CameraState.camera.read()
         if ret:
             logger.info("Camera initialized successfully.")
             return True
         else:
             logger.error("Camera opened but cannot read frame.")
-            camera.release()
-            camera = None
+            CameraState.camera.release()
+            CameraState.camera = None
             return False
 
     except Exception as e:
@@ -504,13 +506,12 @@ def get_descriptions():
 
 def generate_frames():
     """Generate video frames for streaming"""
-    global is_streaming, camera
     
-    while is_streaming:
-        if camera is None or not camera.isOpened():
+    while CameraState.is_streaming:
+        if CameraState.camera is None or not CameraState.camera.isOpened():
             break
             
-        success, frame = camera.read()
+        success, frame = CameraState.camera.read()
         if not success:
             logger.warning("Failed to read frame from camera")
             break
@@ -537,11 +538,11 @@ def generate_frames():
 @app.route('/video_feed')
 @login_required
 def video_feed():
-    global is_streaming, camera
-    logger.info(f"[video_feed] is_streaming: {is_streaming}, camera: {camera}")
+    
+    logger.info(f"[video_feed] is_streaming: {CameraState.is_streaming}, camera: { CameraState.camera}")
     
     try:
-        if not is_streaming or camera is None:
+        if not CameraState.is_streaming or CameraState.camera is None:
             logger.warning("[video_feed] Stream not started")
             return "Stream not started. Click 'Start Stream' first.", 404
 
@@ -562,15 +563,14 @@ def video_feed():
 @login_required
 def start_stream():
     """Start video streaming"""
-    global is_streaming, url
 
     data =  request.get_json()
-    url = data.get('url')    
-    print('RTSP link:',url)
+    CameraState.url = data.get('url')    
+    print('RTSP link:',CameraState.url)
 
-    if not is_streaming:
+    if not CameraState.is_streaming:
         if initialize_camera():
-            is_streaming = True
+            CameraState.is_streaming = True
             # Start the description processing thread
             description_thread = threading.Thread(target=enhanced_process_descriptions2, daemon=True)
             # description_thread = threading.Thread(target=enhanced_process_descriptions, daemon=True)
@@ -583,11 +583,11 @@ def start_stream():
 
 def cleanup_camera():
     """Clean up camera resources"""
-    global camera, is_streaming
-    is_streaming = False
-    if camera is not None:
-        camera.release()
-        camera = None
+
+    CameraState.is_streaming = False
+    if CameraState.camera is not None:
+        CameraState.camera.release()
+        CameraState.camera = None
     logger.info("Camera resources cleaned up")
 
 
@@ -863,7 +863,7 @@ def process_ai_results2():
 
 def enhanced_process_descriptions2():
     """NEW - Main description processing using AI worker threads"""
-    global is_streaming, ai_worker_running, ai_worker_thread
+    global ai_worker_running, ai_worker_thread
     
     # Start AI worker thread
     ai_worker_running = True
@@ -873,7 +873,7 @@ def enhanced_process_descriptions2():
     
     frame_count = 0
     
-    while is_streaming:
+    while CameraState.is_streaming:
         try:
             if not video_queue.empty():
                 frame = video_queue.get(timeout=1)
