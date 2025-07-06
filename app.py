@@ -479,6 +479,7 @@ def initialize_camera():
         ret, _ = CameraState.camera.read()
         if ret:
             logger.info("Camera initialized successfully.")
+            print('camera is on', CameraState.camera)
             return True
         else:
             logger.error("Camera opened but cannot read frame.")
@@ -539,7 +540,7 @@ def generate_frames():
 @login_required
 def video_feed():
     
-    logger.info(f"[video_feed] is_streaming: {CameraState.is_streaming}, camera: { CameraState.camera}")
+    logger.info(f"[video_feed] is_streaming: {CameraState.is_streaming}, camera: { CameraState.camera}, url: {CameraState.url}")
     
     try:
         if not CameraState.is_streaming or CameraState.camera is None:
@@ -570,6 +571,7 @@ def start_stream():
 
     if not CameraState.is_streaming:
         if initialize_camera():
+            print('do we get here-1')
             CameraState.is_streaming = True
             # Start the description processing thread
             description_thread = threading.Thread(target=enhanced_process_descriptions2, daemon=True)
@@ -577,8 +579,10 @@ def start_stream():
             description_thread.start()
             return jsonify({"status": "success", "message": "Stream started"})
         else:
+            print('do we get here-2')
             return jsonify({"status": "error", "message": "Failed to initialize camera"}), 500
     else:
+        print('do we get here-3')
         return jsonify({"status": "info", "message": "Stream already running"})
 
 def cleanup_camera():
