@@ -32,4 +32,6 @@ class Config:
     # Verification code expiry (5 minutes)
     VERIFICATION_CODE_EXPIRY = 300
 
+    # REDIS PASSWORD
+    REDIS_PASS = os.environ.get('REDIS_PASS')
 

@@ -10,6 +10,25 @@ from datetime import datetime, timedelta
 import openai
 import os
 from dotenv import load_dotenv
+import redis
+
+"""Basic connection example.
+"""
+
+import redis
+
+redis_client = redis.Redis(
+    host='redis-10368.c83.us-east-1-2.ec2.redns.redis-cloud.com',
+    port=10368,
+    decode_responses=True,
+    username="default",
+    password="NOxk6xDdPYhKx6x8riosEixgr46dy3MW",
+)
+
+
+redis_client.set('camera:url', 'None')
+redis_client.set('camera:is_opened', 'False')
+redis_client.set('camera:is_streaming', 'False')
 
 load_dotenv()
 # camera object to keep track of its state
@@ -441,21 +460,24 @@ CORS(app)
 video_queue = queue.Queue(maxsize=10)
 description_queue = queue.Queue(maxsize=50)
 
+MAX_WAIT = 600  # seconds
+LOG_INTERVAL = 5
+
 def initialize_camera():
     """Robust camera initialization that allows long waits"""
 
-    MAX_WAIT = 600  # seconds
-    LOG_INTERVAL = 5
-
+    url = redis_client.get('camera:url')
+    is_opened = redis_client.get('camera:is_opened')=='True'
+    print(url, is_opened)
     try:
         if CameraState.camera is not None:
             CameraState.camera.release()
 
-        if CameraState.url == '0':
-            CameraState.url = 0
+        if url == '0':
+            url = 0
 
-        print('RTSP link:',CameraState.url)
-        CameraState.camera = cv2.VideoCapture(CameraState.url)
+        print('RTSP link:', url)
+        CameraState.camera = cv2.VideoCapture(url)
 
         start_time = time.time()
         last_log = 0
@@ -472,6 +494,7 @@ def initialize_camera():
 
             time.sleep(1)
 
+        redis_client.set('camera:is_opened', 'True')
         # Optional: Lower resolution to save memory
         CameraState.camera.set(cv2.CAP_PROP_FRAME_WIDTH, 320)
         CameraState.camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
@@ -485,6 +508,9 @@ def initialize_camera():
             logger.error("Camera opened but cannot read frame.")
             CameraState.camera.release()
             CameraState.camera = None
+
+            # no need to turn streaming back to False it was already like that
+            redis_client.set('camera:is_opened', 'False')
             return False
 
     except Exception as e:
@@ -508,8 +534,8 @@ def get_descriptions():
 def generate_frames():
     """Generate video frames for streaming"""
     
-    while CameraState.is_streaming:
-        if CameraState.camera is None or not CameraState.camera.isOpened():
+    while redis_client.get('camera:is_streaming'):
+        if CameraState.camera is None or not redis_client.get('camera:is_opened'):
             break
             
         success, frame = CameraState.camera.read()
@@ -536,16 +562,39 @@ def generate_frames():
                b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
         
         time.sleep(0.033)  # ~30 FPS
+
 @app.route('/video_feed')
 @login_required
 def video_feed():
     
-    logger.info(f"[video_feed] is_streaming: {CameraState.is_streaming}, camera: { CameraState.camera}, url: {CameraState.url}")
+    logger.info(f"[video_feed] is_streaming: {redis_client.get('camera:is_streaming')}, camera: { CameraState.camera}, url: {redis_client.get('camera:url')}")
     
     try:
-        if not CameraState.is_streaming or CameraState.camera is None:
+        if not (redis_client.get('camera:is_streaming')=='True') or not (redis_client.get('camera:is_opened')=='True'):
             logger.warning("[video_feed] Stream not started")
             return "Stream not started. Click 'Start Stream' first.", 404
+
+        if CameraState.camera is None:
+            CameraState.camera = cv2.VideoCapture(redis_client.get('camera:url'))
+
+            start_time = time.time()
+            last_log = 0
+
+            while not CameraState.camera.isOpened():
+                elapsed = time.time() - start_time
+                if elapsed > MAX_WAIT:
+                    logger.error(f"Camera failed to open after {MAX_WAIT} seconds.")
+                    return False
+
+                if int(elapsed) - last_log >= LOG_INTERVAL:
+                    logger.warning(f"Waiting for camera to open... ({int(elapsed)}s)")
+                    last_log = int(elapsed)
+
+                time.sleep(1)
+            
+            # Optional: Lower resolution to save memory
+            CameraState.camera.set(cv2.CAP_PROP_FRAME_WIDTH, 320)
+            CameraState.camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
 
         return Response(
             generate_frames(),
@@ -566,13 +615,17 @@ def start_stream():
     """Start video streaming"""
 
     data =  request.get_json()
-    CameraState.url = data.get('url')    
-    print('RTSP link:',CameraState.url)
+    url = CameraState.url = data.get('url')
+    redis_client.set('camera:url', url)  
+    is_streaming = redis_client.get('camera:is_streaming')=="True"
+    
+    print('RTSP link:', url)
 
-    if not CameraState.is_streaming:
+    if not is_streaming:
         if initialize_camera():
             print('do we get here-1')
-            CameraState.is_streaming = True
+            redis_client.set('camera:is_streaming',"True")
+
             # Start the description processing thread
             description_thread = threading.Thread(target=enhanced_process_descriptions2, daemon=True)
             # description_thread = threading.Thread(target=enhanced_process_descriptions, daemon=True)
@@ -588,10 +641,11 @@ def start_stream():
 def cleanup_camera():
     """Clean up camera resources"""
 
-    CameraState.is_streaming = False
+    redis_client.set('camera:is_streaming', "False")
     if CameraState.camera is not None:
         CameraState.camera.release()
         CameraState.camera = None
+        redis_client.set('camera:is_opened', 'False')
     logger.info("Camera resources cleaned up")
 
 
@@ -877,7 +931,7 @@ def enhanced_process_descriptions2():
     
     frame_count = 0
     
-    while CameraState.is_streaming:
+    while (redis_client.get('camera:is_streaming')=='True'):
         try:
             if not video_queue.empty():
                 frame = video_queue.get(timeout=1)
