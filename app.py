@@ -179,8 +179,9 @@ def index():
     return redirect(url_for('login'))
 
 @app.route('/mission')
+@login_required
 def mission():
-    return render_template('mission.html', username=session.get('username'), prompt=prompt, date=datetime.now().strftime("%Y-%m-%d"), title=title)
+    return render_template('mission.html', username=session.get('username'), prompt=prompt, date=datetime.now().strftime("%Y-%m-%d"), title=title, current_user=current_user)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -219,14 +220,19 @@ def register():
         # Get form data
         email = request.form.get('email').lower().strip()
         password = request.form.get('password')
+        confirm_password = request.form.get('confirm_password')
         first_name = request.form.get('first_name').strip()
         last_name = request.form.get('last_name').strip()
 
         # Validate data
-        if not all([email, password, first_name, last_name]):
+        if not all([email, password, confirm_password, first_name, last_name]):
             flash('All fields are required.', 'error')
             return render_template('register.html')
-        
+
+        if password != confirm_password:
+            flash('Passwords do not match.', 'error')
+            return render_template('register.html')
+
         if len(password) < 6:
             flash('Password must be at least 6 characters long.', 'error')
             return render_template('register.html')
@@ -579,7 +585,7 @@ def video_feed():
 
             start_time = time.time()
             last_log = 0
-
+            logger.warning("Camera", CameraState.camera, "open?:", redis_client.get('camera:is_opened'), 'url?', redis_client.get('camera:url'))
             while not CameraState.camera.isOpened():
                 elapsed = time.time() - start_time
                 if elapsed > MAX_WAIT:
@@ -591,7 +597,8 @@ def video_feed():
                     last_log = int(elapsed)
 
                 time.sleep(1)
-            
+
+            redis_client.set('camera:is_opened', 'True')
             # Optional: Lower resolution to save memory
             CameraState.camera.set(cv2.CAP_PROP_FRAME_WIDTH, 320)
             CameraState.camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
