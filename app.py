@@ -25,7 +25,7 @@ redis_client = redis.Redis(
     port=10368,
     decode_responses=True,
     username="default",
-    password="NOxk6xDdPYhKx6x8riosEixgr46dy3MW",
+    password=os.environ.get('REDIS_PASS'),
 )
 
 
@@ -45,6 +45,8 @@ app = Flask(__name__)
 app.config.from_object(Config)
 prompt="Act as a security monitor. Describe what you see and alert if anything dangerous is happening."
 title='Security Monitoring'
+triggers = 'danger, bad'
+reporter = os.getenv('MAIL_USERNAME')
 
 import cv2
 print(cv2.getBuildInformation())
@@ -114,7 +116,7 @@ Your App Team
 
 @app.route('/api/prompt', methods=['POST'])
 def update_prompt():
-    global prompt, title
+    global prompt, title, triggers, reporter
     
     try:
         # Get JSON data from the request
@@ -130,6 +132,8 @@ def update_prompt():
         # Extract mission title and prompt
         mission_title = data.get('mission_title', '').strip()
         mission_prompt = data.get('mission_prompt', '').strip()
+        mission_triggers = data.get('mission_triggers', '').strip()
+        mission_reporter = data.get('mission_reporter', '').strip()
         
         # Basic validation
         if not mission_title:
@@ -143,23 +147,44 @@ def update_prompt():
                 'status': 'error',
                 'message': 'Mission prompt is required'
             }), 400
+
+        if not mission_triggers:
+            return jsonify({
+                'status': 'error',
+                'message': 'Mission prompt is required'
+            }), 400
+        
+
+        if not mission_reporter:
+            return jsonify({
+                'status': 'error',
+                'message': 'Mission prompt is required'
+            }), 400
         
         # Update global variables (modify this part based on your needs)
         current_mission_title = mission_title
         prompt = mission_prompt
         title = mission_title
-        
+        triggers = mission_triggers
+        if mission_reporter and '@' in mission_reporter:
+            reporter = mission_reporter
+
+    
         # Log the received data (optional)
         print(f"Mission Title: {mission_title}")
         print(f"Mission Prompt: {mission_prompt}")
-        
+        print(f"Mission Triggers: {mission_triggers}")
+        print(f"Mission Reporter: {mission_reporter}")
+
         # Return success response
         return jsonify({
             'status': 'success',
             'message': 'Mission created successfully',
             'data': {
                 'mission_title': mission_title,
-                'mission_prompt': mission_prompt
+                'mission_prompt': mission_prompt,
+                'mission_triggers': mission_triggers, 
+                'mission_reporter': mission_reporter
             }
         }), 200
         
@@ -179,9 +204,9 @@ def index():
         # All users in database are email verified, only check payment
         if current_user.has_paid or (hasattr(current_user, 'subscription_status') and current_user.subscription_status == 'active'):
     # Allow access
-            return redirect(url_for('payment'))
-        else:
             return redirect(url_for('home'))
+        else:
+            return redirect(url_for('payment'))
     return redirect(url_for('login'))
 
 @app.route('/mission')
@@ -191,7 +216,7 @@ def mission():
 
 # Add this near your other global variables
 current_user_email = None
-email_cooldown_time = 30
+email_cooldown_time = 10
 last_alert_email_time = 0
 
 # Thread-safe email storage
@@ -254,13 +279,16 @@ def login():
     
     return render_template('login.html')
 
-def send_alert_email_with_image(body, recipient_email, frame=None):
+def send_alert_email_with_image(body, recipient_email, frame):
     """Send alert email to user with optional image attachment"""
+    global reporter
     try:
+        print('here x')
+        print(reporter)
         # Create the MIME message
         msg = MIMEMultipart()
         msg['From'] = your_email
-        msg['To'] = recipient_email
+        msg['To'] = reporter
         msg['Subject'] = "🚨 SECURITY ALERT DETECTED"
 
         # Add an HTML body
@@ -280,14 +308,18 @@ def send_alert_email_with_image(body, recipient_email, frame=None):
         </body>
         </html>
         """
+        print('here xx')
         msg.attach(MIMEText(html, 'html'))
 
         # Add image attachment if frame is provided
         if frame is not None:
             try:
+                print('here xxx')
                 # Encode frame as JPEG
                 success, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 95])
+                print('here xxxx')
                 if success:
+                    print('here xxxxx')
                     # Create image attachment
                     img_attachment = MIMEImage(buffer.tobytes())
                     img_attachment.add_header(
@@ -301,11 +333,16 @@ def send_alert_email_with_image(body, recipient_email, frame=None):
             except Exception as img_error:
                 logger.error(f"Error attaching image to email: {img_error}")
 
+        print('here xxxxxxxxx')
         # Connect to the SMTP server and send the email
         server = smtplib.SMTP(smtp_server, smtp_port)
+        print('here xxxxxxxxx2')
         server.starttls()
+        print('here xxxxxxxxx3')
         server.login(your_email, your_password)
+        print('here xxxxxxxxx4')
         server.send_message(msg)
+        print('here xxxxxxxxx5')
         server.quit()
 
         print(f"Alert email sent successfully to {recipient_email}")
@@ -1049,8 +1086,7 @@ if __name__ == '__main__':
     app.run(threaded=True, debug=True)
 
  # TODO: Move to env vars later
-import threading
-import cv2
+
 import logging
 import queue
 import time
@@ -1344,30 +1380,33 @@ def encode_image(frame):
 
 
 def is_alert_response(ai_response):
+    global triggers
     """Checks if the AI is actually alerting us about something serious"""
-    response_lower = ai_response.lower()
+    print('triggers', triggers)
+    keywords = triggers.split(', ')
+    ai_words = ai_response.split(' ')
     
-    # Stuff we actually care about
-    positive_alerts = [
-        'alert', 'danger', 'emergency', 'help needed', 'call for help',
-        'fighting', 'violence', 'aggressive', 'attacking',
-        'fire', 'smoke', 'medical emergency', 'injury', 'accident',
-        'suspicious activity', 'intruder', 'break-in', 'theft', 'this', 'the'
-    ]
+    # # Stuff we actually care about
+    # positive_alerts = [
+    #     'alert', 'danger', 'emergency', 'help needed', 'call for help',
+    #     'fighting', 'violence', 'aggressive', 'attacking',
+    #     'fire', 'smoke', 'medical emergency', 'injury', 'accident',
+    #     'suspicious activity', 'intruder', 'break-in', 'theft', 'this', 'the'
+    # ]
     
-    # Stuff that means everything's cool
-    negative_indicators = [
-        'no danger', 'no alert', 'no emergency', 'no unusual', 'no suspicious',
-        'safe environment', 'appears calm', 'normal activity', 'no threat',
-        'no alerts necessary', 'no immediate concerns'
-    ]
-    
+    # # Stuff that means everything's cool
+    # negative_indicators = [
+    #     'no danger', 'no alert', 'no emergency', 'no unusual', 'no suspicious',
+    #     'safe environment', 'appears calm', 'normal activity', 'no threat',
+    #     'no alerts necessary', 'no immediate concerns'
+    # ]
+    is_sent = any(word in keywords for word in ai_words)
+    print('is_sent', is_sent)
     # Check for negative indicators first
-    if any(neg in response_lower for neg in negative_indicators):
-        return False
+    return is_sent
     
-    # Then check for positive alerts
-    return any(alert in response_lower for alert in positive_alerts)
+    # # Then check for positive alerts
+    # return any(alert in response_lower for alert in positive_alerts)
 
 import smtplib
 from email.mime.multipart import MIMEMultipart
@@ -1376,8 +1415,8 @@ from email.mime.image import MIMEImage
 
 smtp_server = os.environ.get('SMTP_SERVER')
 smtp_port = os.environ.get('SMTP_PORT')
-your_email = os.environ.get('EMAIL')
-your_password = os.environ.get('CODE')
+your_email = os.environ.get('MAIL_USERNAME')
+your_password = os.environ.get('MAIL_PASSWORD')
 
 def interpret_frame_with_openai(frame):
     global prompt
@@ -1610,6 +1649,7 @@ def process_ai_results2():
                                 args=(ai_response, user_email, alert_frame),
                                 daemon=True
                             )
+                            print(ai_response, user_email, alert_frame)
                             email_thread.start()
                             
                             last_alert_email_time = current_time
