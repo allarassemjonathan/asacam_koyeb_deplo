@@ -21,8 +21,7 @@
     <div class="logo">ASACAM</div>
     <div class="nav-links">
       <a href="/" class="active">Home</a>
-      <a href="/analytics">Analytics</a>
-      <a href="/settings">Settings</a>
+      <a href="/cameras">Cameras</a>
       <a href="/logout">Logout</a>
     </div>
   </nav>
@@ -34,7 +33,20 @@
       
       <div class="cta-buttons">
         <button class="btn secondary" id="startMissionBtn" type="button" style="font-family: 'Chakra Petch', sans-serif;">Start Mission</button>
-        <button class="btn secondary" id="ViewMissionBtn" type="button" style="font-family: 'Chakra Petch', sans-serif;">View Missions</button>
+        <button class="btn secondary" id="ViewStreamsBtn" type="button" style="font-family: 'Chakra Petch', sans-serif;">View Streams</button>
+        <a href="{{ url_for('cancel_subscription') }}" style="
+    color: #ffffff;
+    text-decoration: none;
+    font-size: 0.9rem;
+    background: transparent;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    border: 1px solid rgb(255, 255, 255);
+    transition: all 0.3s ease;
+  " onmouseover="this.style.background='rgba(220, 53, 69, 0.1)'" 
+     onmouseout="this.style.background='rgba(0, 0, 0, 0.8)'">
+    Cancel Subscription
+  </a>
       </div>
     </div>
 
@@ -105,6 +117,16 @@
           <textarea id="missionPrompt" name="mission_prompt" required rows="4"></textarea>
         </div>
 
+        <div class="form-group" style="margin-top:0;">
+          <label for="missionTriggers">Mission Triggers</label>
+          <input type="text" id="missionTriggers" name="mission_triggers" placeholder="Type words followed by commas" />
+        </div>
+
+        <div class="form-group" style="margin-top:0;">
+          <label for="missionReporter">Mission Reporter</label>
+          <input type="text" id="missionReporter" name="mission_reporter" placeholder="Who you want to alert eg, police@gmail.com" />
+        </div>
+
         <div class="form-actions">
           <button type="button" class="btn secondary" id="cancelBtn">Cancel</button>
           <button type="submit" class="btn primary" id="submitBtn">Create Mission</button>
@@ -121,6 +143,12 @@
     const closeBtn = document.getElementById('cancelBtn');
     const cancelBtn = document.getElementById('cancelBtn');
     const form = document.getElementById('missionForm');
+    const streamsBtn = document.getElementById("ViewStreamsBtn");
+
+    // launch the cameras page
+    streamsBtn.addEventListener('click', function(){
+      window.location.href='/cameras';
+    });
 
     // show the modal when start is clicked
     startBtn.addEventListener('click', function(){
@@ -175,10 +203,12 @@
       e.preventDefault();
 
       // Get form data
+      const missionTriggers = document.getElementById('missionTriggers').value;
+      const missionReporter = document.getElementById('missionReporter').value;
       const missionTitle = document.getElementById('missionTitle').value;
       const missionPrompt = document.getElementById('missionPrompt').value;
 
-      if (!missionTitle || !missionPrompt){
+      if (!missionTitle || !missionPrompt || !missionTriggers || !missionReporter){
         alert('Please fill in both fields');
         return;
       }
@@ -195,7 +225,10 @@
             },
             body: JSON.stringify({
                 mission_title: missionTitle,
-                mission_prompt: missionPrompt
+                mission_prompt: missionPrompt, 
+                mission_triggers: missionTriggers, 
+                mission_reporter: missionReporter
+
             })
         })
         .then(response => {

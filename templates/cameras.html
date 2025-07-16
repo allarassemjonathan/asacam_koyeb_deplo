@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cameras – ASACAM</title>
+  <link rel="icon" type="image/png" href="favicon.png" />
+
+  <!-- Fonts & main stylesheet -->
+  <link rel="preconnect" href="https://fonts.gstatic.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="static/style.css" />
+  <link rel="stylesheet" href="static/modal.css" />
+  <style>
+    
+    .cameras-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+
+    .cameras-header {
+      text-align: center;
+      margin-bottom: 3rem;
+    }
+
+    .cameras-header h1 {
+      font-size: 2.5rem;
+      margin-bottom: 1rem;
+      background: linear-gradient(45deg, #fff, #888);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .cameras-header p {
+      color: #888;
+      font-size: 1.1rem;
+    }
+
+    /* Search Bar Styling */
+    .search-container {
+      max-width: 500px;
+      margin: 0 auto 3rem auto;
+      position: relative;
+    }
+
+    .search-input {
+      width: 100%;
+      padding: 1rem 1.5rem;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 50px;
+      color: #fff;
+      font-size: 1rem;
+      font-family: 'Chakra Petch', sans-serif;
+      transition: all 0.3s ease;
+      box-sizing: border-box;
+    }
+
+    .search-input:focus {
+      outline: none;
+      border-color: #fff;
+      background: rgba(255, 255, 255, 0.08);
+      box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.1);
+    }
+
+    .search-input::placeholder {
+      color: #666;
+    }
+
+    .search-icon {
+      position: absolute;
+      right: 1.5rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #888;
+      font-size: 1.2rem;
+      pointer-events: none;
+    }
+
+    .cameras-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+      gap: 2rem;
+      margin-bottom: 3rem;
+    }
+
+    .camera-card {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 2rem;
+      transition: all 0.3s ease;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .camera-card:hover {
+      transform: translateY(-5px);
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.2);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    }
+
+    .camera-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(45deg, #fff, #888);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .camera-card:hover::before {
+      opacity: 1;
+    }
+
+    .camera-name {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: #fff;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .camera-status {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #4CAF50;
+      display: inline-block;
+      animation: pulse 2s infinite;
+    }
+
+    .camera-status.offline {
+      background: #f44336;
+      animation: none;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 1; }
+      50% { opacity: 0.5; }
+      100% { opacity: 1; }
+    }
+
+    .camera-details {
+      margin-bottom: 1.5rem;
+    }
+
+    .camera-detail {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 0.5rem;
+      color: #888;
+      font-size: 0.9rem;
+    }
+
+    .camera-detail strong {
+      color: #fff;
+    }
+
+    .camera-link {
+      color: #4CAF50;
+      font-family: monospace;
+      font-size: 0.8rem;
+      word-break: break-all;
+    }
+
+    .camera-prompt {
+      background: rgba(0, 0, 0, 0.3);
+      padding: 1rem;
+      border-radius: 8px;
+      margin-bottom: 1.5rem;
+      border-left: 4px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .camera-prompt p {
+      color: #ccc;
+      font-size: 0.9rem;
+      line-height: 1.4;
+      margin: 0;
+    }
+
+    .camera-actions {
+      display: flex;
+      gap: 1rem;
+      justify-content: flex-end;
+    }
+
+    .camera-btn {
+      padding: 0.5rem 1rem;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      background: transparent;
+      color: #fff;
+      border-radius: 6px;
+      cursor: pointer;
+      font-family: 'Chakra Petch', sans-serif;
+      font-size: 0.8rem;
+      transition: all 0.3s ease;
+    }
+
+    .camera-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(255, 255, 255, 0.5);
+    }
+
+    .camera-btn.primary {
+      background: #fff;
+      color: #000;
+      border-color: #fff;
+    }
+
+    .camera-btn.primary:hover {
+      background: rgba(255, 255, 255, 0.9);
+    }
+
+    .add-camera-btn {
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      background: linear-gradient(45deg, #fff, #888);
+      color: #000;
+      border: none;
+      font-size: 1.5rem;
+      cursor: pointer;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+      transition: all 0.3s ease;
+      z-index: 100;
+    }
+
+    .add-camera-btn:hover {
+      transform: scale(1.1);
+      box-shadow: 0 6px 25px rgba(0, 0, 0, 0.4);
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 4rem 2rem;
+      color: #888;
+    }
+
+    .empty-state h3 {
+      font-size: 1.5rem;
+      margin-bottom: 1rem;
+      color: #fff;
+    }
+
+    .empty-state p {
+      margin-bottom: 2rem;
+    }
+
+    .no-results {
+      text-align: center;
+      padding: 3rem 2rem;
+      color: #888;
+    }
+
+    .no-results h3 {
+      font-size: 1.3rem;
+      margin-bottom: 1rem;
+      color: #fff;
+    }
+
+    /* Responsive Design */
+    @media (max-width: 768px) {
+      .cameras-grid {
+        grid-template-columns: 1fr;
+      }
+      
+      .camera-actions {
+        flex-direction: column;
+      }
+      
+      .add-camera-btn {
+        bottom: 1rem;
+        right: 1rem;
+      }
+
+      .search-container {
+        margin-bottom: 2rem;
+      }
+    }
+    /* Add Camera Modal - Copy Mission Modal Styling */
+    #addCameraModal input,
+    #addCameraModal textarea {
+    background-color: #000 !important;     /* Inside is black */
+    color: #fff !important;                /* Text is white */
+    border: 1px solid #444;
+    font-family: 'Chakra Petch', sans-serif;
+    font-size: 0.9rem;
+    padding: 0.75rem;
+    border-radius: 6px;
+    width: 100% !important;
+    box-sizing: border-box;
+    }
+
+    /* Focus Styling */
+    #addCameraModal input:focus,
+    #addCameraModal textarea:focus {
+    background-color: #000 !important;
+    color: #fff !important;
+    border: 1px solid white !important;
+    outline: none !important;
+    box-shadow: none !important;
+    }
+
+    /* Placeholder Styling */
+    #addCameraModal input::placeholder,
+    #addCameraModal textarea::placeholder {
+    color: #888;
+    font-style: italic;
+    }
+    /* Add Camera Modal Buttons - Exact copy of Mission Modal */
+    #cancelAddBtn {
+    background-color: #c0392b;
+    color: white;
+    border: none;
+    padding: 0.6rem 1.4rem;
+    border-radius: 6px;
+    font-family: 'Chakra Petch', sans-serif;
+    font-size: 0.9rem;
+    cursor: pointer;
+    }
+
+    #addSubmitBtn {
+    background-color: white;
+    color: black;
+    border: none;
+    padding: 0.6rem 1.4rem;
+    border-radius: 6px;
+    font-family: 'Chakra Petch', sans-serif;
+    font-size: 0.9rem;
+    cursor: pointer;
+    }
+
+  </style>
+</head>
+<body>
+  <div id="particles-js"></div>
+  
+  <nav>
+    <div class="logo">ASACAM</div>
+    <div class="nav-links">
+      <a href="/">Home</a>
+      <a href="/cameras" class="active">Cameras</a>
+      <a href="/logout">Logout</a>
+    </div>
+  </nav>
+
+  <main>
+    <div class="cameras-container">
+      <div class="cameras-header">
+        <h1>Camera Management</h1>
+        <p>Monitor and manage your security cameras</p>
+      </div>
+
+      <!-- Search Bar -->
+      <div class="search-container">
+        <input type="text" class="search-input" id="searchInput" placeholder="Search cameras by name..." />
+      </div>
+
+      <div id="camerasGrid" class="cameras-grid">
+        <!-- Cameras will be loaded here -->
+      </div>
+
+      <div id="noResults" class="no-results" style="display: none;">
+        <h3>No cameras found</h3>
+        <p>Try adjusting your search terms</p>
+      </div>
+
+      <div id="emptyState" class="empty-state" style="display: none;">
+        <h3>No Cameras Added</h3>
+        <p>Add your first camera to start monitoring</p>
+        <button class="btn primary" onclick="openAddCameraModal()">Add Camera</button>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <p>&copy; 2024 Asacam. All rights reserved.</p>
+  </footer>
+
+  <!-- Add Camera Button -->
+  <button class="add-camera-btn" onclick="openAddCameraModal()" title="Add Camera">+</button>
+<!-- Add Camera Modal - Exactly Styled like Mission Modal -->
+<div id="addCameraModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header" style="margin-bottom:0;">
+      <h2>Add New Camera</h2>
+    </div>
+
+    <form id="addCameraForm" class="modal-body">
+      <div class="form-group" style="margin-top:0;">
+        <label for="cameraName">Camera Name</label>
+        <input type="text" id="cameraName" name="camera_name" required />
+      </div>
+
+      <div class="form-group">
+        <label for="cameraLink">Camera Link/URL</label>
+        <input type="text" id="cameraLink" name="camera_link" required />
+      </div>
+
+      <div class="form-group">
+        <label for="cameraPrompt">Mission Prompt</label>
+        <textarea id="cameraPrompt" name="camera_prompt" required rows="4"></textarea>
+      </div>
+
+      <div class="form-actions">
+        <button type="button" id="cancelAddBtn">Cancel</button>
+        <button type="submit" id="addSubmitBtn">Add Camera</button>
+    </div>
+    </form>
+  </div>
+</div>
+
+  <!-- View Mission Modal -->
+  <div id="missionModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header" style="margin-bottom:0;">
+        <h2 id="missionTitle">Mission Details</h2>
+      </div>
+      
+      <div class="modal-body">
+        <div class="form-group" style="margin-top:0;">
+          <label>Camera Name</label>
+          <div id="missionCameraName" style="padding: 0.75rem; background: rgba(0,0,0,0.3); border-radius: 6px; color: #fff; border: 1px solid #444;"></div>
+        </div>
+
+        <div class="form-group">
+          <label>Camera Link</label>
+          <div id="missionCameraLink" style="padding: 0.75rem; background: rgba(0,0,0,0.3); border-radius: 6px; color: #4CAF50; font-family: monospace; font-size: 0.9rem; word-break: break-all; border: 1px solid #444;"></div>
+        </div>
+
+        <div class="form-group">
+          <label>Mission Prompt</label>
+          <div id="missionPromptDisplay" style="padding: 1rem; background: rgba(0,0,0,0.3); border-radius: 6px; color: #ccc; line-height: 1.4; min-height: 100px; border: 1px solid #444;"></div>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="btn secondary" id="closeMissionBtn">Close</button>
+          <button type="button" class="btn primary" id="startMissionBtn">Start Mission</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Particles.js -->
+  <script src="https://cdn.jsdelivr.net/npm/particles.js@2.0.0/particles.min.js"></script>
+  <script>
+  // Particles.js configuration
+  particlesJS.load('particles-js', 'particles.json', function() {
+    console.log('particles.js loaded - callback');
+  });
+
+  // Fallback config if particles.json is not present
+  if (!window.pJSDom || window.pJSDom.length === 0) {
+    particlesJS('particles-js', {
+      "particles": {
+        "number": {"value": 80, "density": {"enable": true, "value_area": 800}},
+        "color": {"value": "#fff"},
+        "shape": {"type": "circle"},
+        "opacity": {"value": 0.5, "random": false},
+        "size": {"value": 2, "random": true},
+        "line_linked": {"enable": true, "distance": 150, "color": "#fff", "opacity": 0.2, "width": 1},
+        "move": {"enable": true, "speed": 1.2, "direction": "none", "random": false, "straight": false, "out_mode": "out", "bounce": false}
+      },
+      "interactivity": {
+        "detect_on": "canvas",
+        "events": {"onhover": {"enable": true, "mode": "repulse"}, "onclick": {"enable": true, "mode": "push"}, "resize": true},
+        "modes": {"repulse": {"distance": 100, "duration": 0.4}, "push": {"particles_nb": 4}}
+      },
+      "retina_detect": true
+    });
+  }
+
+  // Sample camera data
+  let cameras = [
+    {
+      id: 1,
+      name: "Front Door Camera",
+      link: "rtsp://192.168.1.100:554/stream",
+      prompt: "Monitor the front entrance for any suspicious activity, deliveries, or unauthorized access attempts. Alert if someone lingers for too long or if packages are left unattended.",
+      status: "online",
+      lastSeen: "2 minutes ago"
+    },
+    {
+      id: 2,
+      name: "Backyard Security",
+      link: "rtsp://192.168.1.101:554/stream",
+      prompt: "Watch the backyard area for intruders, unusual movement, or animals. Pay attention to the fence line and any activity near windows or doors.",
+      status: "online",
+      lastSeen: "1 minute ago"
+    },
+    {
+      id: 3,
+      name: "Office Monitor",
+      link: "http://192.168.1.102:8080/video",
+      prompt: "Monitor the office space during off-hours. Alert for any movement, lights being turned on, or access to sensitive areas when the office should be empty.",
+      status: "offline",
+      lastSeen: "15 minutes ago"
+    },
+    {
+      id: 4,
+      name: "Garage Camera",
+      link: "rtsp://192.168.1.103:554/stream",
+      prompt: "Keep watch over the garage area for any unauthorized entry or suspicious activity around vehicles and stored items.",
+      status: "online",
+      lastSeen: "30 seconds ago"
+    }
+  ];
+
+  let currentCamera = null;
+  let allCameras = [...cameras]; // Keep original list for search
+
+  function loadCameras(camerasToShow = allCameras) {
+    const grid = document.getElementById('camerasGrid');
+    const emptyState = document.getElementById('emptyState');
+    const noResults = document.getElementById('noResults');
+    
+    // Hide all states first
+    grid.style.display = 'none';
+    emptyState.style.display = 'none';
+    noResults.style.display = 'none';
+    
+    if (allCameras.length === 0) {
+      emptyState.style.display = 'block';
+      return;
+    }
+    
+    if (camerasToShow.length === 0) {
+      noResults.style.display = 'block';
+      return;
+    }
+
+    grid.style.display = 'grid';
+    
+    grid.innerHTML = camerasToShow.map(camera => `
+      <div class="camera-card" onclick="viewMission(${camera.id})">
+        <div class="camera-name">
+          <span class="camera-status ${camera.status}"></span>
+          ${camera.name}
+        </div>
+        
+        <div class="camera-details">
+          <div class="camera-detail">
+            <span>Status:</span>
+            <strong style="color: ${camera.status === 'online' ? '#4CAF50' : '#f44336'}">${camera.status.toUpperCase()}</strong>
+          </div>
+          <div class="camera-detail">
+            <span>Last Seen:</span>
+            <strong>${camera.lastSeen}</strong>
+          </div>
+          <div class="camera-detail">
+            <span>Link:</span>
+            <span class="camera-link">${camera.link}</span>
+          </div>
+        </div>
+
+        <div class="camera-prompt">
+          <p>${camera.prompt}</p>
+        </div>
+
+        <div class="camera-actions">
+          <button class="camera-btn" onclick="event.stopPropagation(); editCamera(${camera.id})">Edit</button>
+          <button class="camera-btn" onclick="event.stopPropagation(); deleteCamera(${camera.id})">Delete</button>
+          <button class="camera-btn primary" onclick="event.stopPropagation(); startMissionFromCard(${camera.id})">Start Mission</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // Search functionality
+  function searchCameras() {
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase().trim();
+    
+    if (searchTerm === '') {
+      loadCameras(allCameras); // Show all cameras when search is empty
+      return;
+    }
+    
+    const filteredCameras = allCameras.filter(camera => 
+      camera.name.toLowerCase().includes(searchTerm)
+    );
+    
+    loadCameras(filteredCameras);
+  }
+
+  function viewMission(cameraId) {
+    const camera = allCameras.find(c => c.id === cameraId);
+    if (!camera) return;
+    
+    currentCamera = camera;
+    
+    document.getElementById('missionTitle').textContent = `Mission: ${camera.name}`;
+    document.getElementById('missionCameraName').textContent = camera.name;
+    document.getElementById('missionCameraLink').textContent = camera.link;
+    document.getElementById('missionPromptDisplay').textContent = camera.prompt;
+    
+    document.getElementById('missionModal').classList.add('show');
+  }
+
+  function closeMissionModal() {
+    document.getElementById('missionModal').classList.remove('show');
+  }
+
+  function startMission() {
+    if (!currentCamera) return;
+    
+    sessionStorage.setItem('currentMission', JSON.stringify({
+      cameraName: currentCamera.name,
+      cameraLink: currentCamera.link,
+      prompt: currentCamera.prompt
+    }));
+    
+    window.location.href = '/mission';
+  }
+
+  function startMissionFromCard(cameraId) {
+    const camera = allCameras.find(c => c.id === cameraId);
+    if (!camera) return;
+    
+    sessionStorage.setItem('currentMission', JSON.stringify({
+      cameraName: camera.name,
+      cameraLink: camera.link,
+      prompt: camera.prompt
+    }));
+    
+    window.location.href = '/mission';
+  }
+
+  function openAddCameraModal() {
+    document.getElementById('addCameraModal').classList.add('show');
+  }
+
+  function closeAddCameraModal() {
+    document.getElementById('addCameraModal').classList.remove('show');
+    document.getElementById('addCameraForm').reset();
+    delete document.getElementById('addCameraForm').dataset.editId;
+  }
+
+  function editCamera(cameraId) {
+    const camera = allCameras.find(c => c.id === cameraId);
+    if (!camera) return;
+    
+    document.getElementById('cameraName').value = camera.name;
+    document.getElementById('cameraLink').value = camera.link;
+    document.getElementById('cameraPrompt').value = camera.prompt;
+    
+    document.getElementById('addCameraForm').dataset.editId = cameraId;
+    document.getElementById('addSubmitBtn').textContent = 'Update Camera';
+    
+    openAddCameraModal();
+  }
+
+  function deleteCamera(cameraId) {
+    if (confirm('Are you sure you want to delete this camera?')) {
+      allCameras = allCameras.filter(c => c.id !== cameraId);
+      cameras = [...allCameras];
+      
+      // Refresh display - if search is active, maintain search, otherwise show all
+      const searchTerm = document.getElementById('searchInput').value.toLowerCase().trim();
+      if (searchTerm === '') {
+        loadCameras(allCameras);
+      } else {
+        searchCameras();
+      }
+    }
+  }
+
+  // Form submission
+  document.getElementById('addCameraForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const cameraData = {
+      name: formData.get('camera_name'),
+      link: formData.get('camera_link'),
+      prompt: formData.get('camera_prompt'),
+      status: 'online',
+      lastSeen: 'just now'
+    };
+    
+    const editId = this.dataset.editId;
+    
+    if (editId) {
+      const index = allCameras.findIndex(c => c.id === parseInt(editId));
+      if (index !== -1) {
+        allCameras[index] = { ...allCameras[index], ...cameraData };
+      }
+    } else {
+      const newId = Math.max(...allCameras.map(c => c.id), 0) + 1;
+      allCameras.push({ id: newId, ...cameraData });
+    }
+    
+    cameras = [...allCameras];
+    
+    // Refresh display - if search is active, maintain search, otherwise show all
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase().trim();
+    if (searchTerm === '') {
+      loadCameras(allCameras);
+    } else {
+      searchCameras();
+    }
+    
+    closeAddCameraModal();
+    document.getElementById('addSubmitBtn').textContent = 'Add Camera';
+  });
+
+  // Modal event listeners
+  document.getElementById('cancelAddBtn').addEventListener('click', closeAddCameraModal);
+  document.getElementById('closeMissionBtn').addEventListener('click', closeMissionModal);
+  document.getElementById('startMissionBtn').addEventListener('click', startMission);
+
+  // Modal close on outside click
+  document.addEventListener('click', function(e) {
+    if (e.target.classList.contains('modal')) {
+      e.target.classList.remove('show');
+    }
+  });
+
+  // Initialize page when DOM is loaded
+  document.addEventListener('DOMContentLoaded', function() {
+    // Load all cameras initially
+    loadCameras(allCameras);
+    
+    // Set up search input event listener AFTER initial load
+    document.getElementById('searchInput').addEventListener('input', searchCameras);
+  });
+  </script>
+</body>
+</html>

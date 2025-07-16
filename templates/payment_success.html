@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block title %}Payment Success{% endblock %}
+{% block content %}
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    font-family: 'Chakra Petch', sans-serif;
+  }
+  .center-wrapper {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    box-sizing: border-box;
+  }
+  .modal-content {
+    background: rgba(0, 0, 0, 0.9);
+    padding: 2rem;
+    border-radius: 12px;
+    width: 100%;
+    max-width: 420px;
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: white;
+    text-align: center;
+  }
+  .success-icon {
+    font-size: 3rem;
+    color: #4CAF50;
+    margin-bottom: 1rem;
+  }
+</style>
+
+<main class="center-wrapper">
+  <div class="modal-content">
+    <div class="success-icon">✅</div>
+    <h2 style="margin-top: 0; color: #4CAF50;">Payment Successful!</h2>
+    <p style="color: rgba(255, 255, 255, 0.8); margin-bottom: 1.5rem;">
+      Thank you! Your subscription has been created and your account is being activated.
+    </p>
+    
+    <div style="margin-bottom: 2rem;">
+      <p style="color: rgba(255, 255, 255, 0.9); margin-bottom: 1rem;">
+        Your account should be ready within a few moments.
+      </p>
+      <p style="color: rgba(255, 255, 255, 0.7); font-size: 0.9rem;">
+        You can now login with the credentials you provided during registration.
+      </p>
+    </div>
+
+    <a href="{{ url_for('login') }}" class="btn primary" style="
+      background: #4CAF50;
+      color: white;
+      padding: 0.75rem 1.5rem;
+      border: none;
+      border-radius: 6px;
+      font-size: 1rem;
+      text-decoration: none;
+      display: inline-block;
+      margin-bottom: 1rem;
+    ">
+      Login to Your Account
+    </a>
+
+    <div style="margin-top: 1rem;">
+      <p style="font-size: 0.9rem; color: rgba(255, 255, 255, 0.6);">
+        <strong>Subscription Details:</strong><br>
+        Monthly billing • Cancel anytime<br>
+        Questions? Contact support.
+      </p>
+    </div>
+  </div>
+</main>
+
+<script>
+  // Optional: Auto-redirect to login after 10 seconds
+  setTimeout(function() {
+    window.location.href = "{{ url_for('login') }}";
+  }, 10000);
+</script>
+{% endblock %}

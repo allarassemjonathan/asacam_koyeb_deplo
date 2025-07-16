@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+
+{% block title %}Reactivate Subscription{% endblock %}
+{% block content %}
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    font-family: 'Chakra Petch', sans-serif;
+  }
+  .center-wrapper {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    box-sizing: border-box;
+  }
+  .modal-content {
+    background: rgba(0, 0, 0, 0.9);
+    padding: 2rem;
+    border-radius: 12px;
+    width: 100%;
+    max-width: 480px;
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: white;
+    text-align: center;
+  }
+  .sad-icon {
+    font-size: 3rem;
+    color: #ffc107;
+    margin-bottom: 1rem;
+  }
+  .btn {
+    padding: 0.75rem 2rem;
+    border: none;
+    border-radius: 6px;
+    font-size: 1rem;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
+    margin: 0.5rem;
+    min-width: 140px;
+  }
+  .btn-success {
+    background: #4CAF50;
+    color: white;
+  }
+  .btn-secondary {
+    background: #6c757d;
+    color: white;
+  }
+  .btn:hover {
+    opacity: 0.9;
+  }
+</style>
+
+<main class="center-wrapper">
+  <div class="modal-content">
+    <div class="sad-icon">😢</div>
+    <h2 style="margin-top: 0; color: #ffc107;">Subscription Canceled</h2>
+    
+    <p style="color: rgba(255, 255, 255, 0.8); margin-bottom: 1.5rem;">
+      Hi {{ current_user.first_name }}, your subscription has been canceled.
+    </p>
+
+    <div style="
+      background: rgba(76, 175, 80, 0.1);
+      border: 1px solid rgba(76, 175, 80, 0.3);
+      padding: 1.5rem;
+      border-radius: 8px;
+      margin-bottom: 2rem;
+    ">
+      <h4 style="margin: 0 0 1rem; color: rgba(76, 175, 80, 0.9);">💡 Good News!</h4>
+      <p style="margin: 0; color: rgba(76, 175, 80, 0.8); text-align: left;">
+        You can reactivate your subscription instantly and get back to using all features. 
+        Your data is safe and waiting for you!
+      </p>
+    </div>
+
+    <p style="color: rgba(255, 255, 255, 0.9); margin-bottom: 2rem;">
+      Would you like to reactivate your subscription and continue using the app?
+    </p>
+
+    <form method="POST" action="{{ url_for('reactivate_subscription') }}">
+      <button type="submit" name="action" value="reactivate" class="btn btn-success">
+        Reactivate My Subscription
+      </button>
+      <button type="submit" name="action" value="stay_canceled" class="btn btn-secondary">
+        Stay Canceled
+      </button>
+    </form>
+
+    <p style="margin-top: 2rem; font-size: 0.9rem; color: rgba(255, 255, 255, 0.6);">
+      Monthly App Access - $34.9.00/month<br>
+      <small>Cancel anytime • No commitments</small>
+    </p>
+  </div>
+</main>
+{% endblock %}

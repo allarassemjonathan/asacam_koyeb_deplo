@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Payment{% endblock %}
+{% block title %}Reactivate Subscription{% endblock %}
 {% block content %}
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
@@ -34,26 +34,10 @@
 
 <main class="center-wrapper">
   <div class="modal-content">
-    <h2 style="margin-top: 0;">Complete Your Subscription</h2>
+    <h2 style="margin-top: 0;">Reactivate Your Subscription</h2>
     <p style="color: rgba(255, 255, 255, 0.8); margin-bottom: 1.5rem;">
-      Hi {{ user_data.first_name }}, please complete your payment to create your account and start your subscription.
+      Hi {{ current_user.first_name }}, please provide your payment information to reactivate your subscription.
     </p>
-
-    <div style="
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      padding: 1.2rem;
-      border-radius: 8px;
-      background: rgba(255, 255, 255, 0.02);
-      margin-bottom: 1rem;
-    ">
-      <h3 style="margin: 0 0 0.5rem;">Account Details</h3>
-      <p style="margin: 0 0 0.3rem; font-size: 0.9rem;">
-        <strong>Email:</strong> {{ user_data.email }}
-      </p>
-      <p style="margin: 0; font-size: 0.9rem;">
-        <strong>Name:</strong> {{ user_data.first_name }} {{ user_data.last_name }}
-      </p>
-    </div>
 
     <div style="
       border: 1px solid rgba(255, 255, 255, 0.15);
@@ -63,7 +47,7 @@
       margin-bottom: 1.5rem;
     ">
       <h3 style="margin: 0 0 0.5rem;">Monthly App Access</h3>
-      <p style="margin: 0 0 0.5rem;">Monthly subscription for full app access</p>
+      <p style="margin: 0 0 0.5rem;">Reactivate your subscription for full app access</p>
       <h4 style="margin: 0 0 0.5rem; color: #4CAF50;">Price: $34.90/month</h4>
       <p style="margin: 0; font-size: 0.9rem; color: rgba(255, 255, 255, 0.7);">
         Cancel anytime • Auto-renews monthly
@@ -72,8 +56,8 @@
 
     <form method="POST">
       <button type="submit" class="btn primary" style="
-        background: white;
-        color: black;
+        background: #4CAF50;
+        color: white;
         padding: 0.75rem 1.5rem;
         border: none;
         border-radius: 6px;
@@ -82,26 +66,13 @@
         width: 100%;
         margin-bottom: 1rem;
       ">
-        Create Account & Start Subscription - $34.90/month
+        Reactivate Subscription - $34.90/month
       </button>
     </form>
 
-    <div style="
-      background: rgba(255, 193, 7, 0.1);
-      border: 1px solid rgba(255, 193, 7, 0.3);
-      padding: 1rem;
-      border-radius: 6px;
-      margin-bottom: 1.5rem;
-    ">
-      <p style="margin: 0; font-size: 0.9rem; color: rgba(255, 193, 7, 0.9);">
-        <strong>⚠️ Important:</strong> Your account will be created only after successful payment confirmation.
-      </p>
-    </div>
-
     <p style="margin-top: 1.5rem; font-size: 0.9rem; text-align: center; color: rgba(255, 255, 255, 0.6);">
       <small>Secure payment processed by Stripe</small><br>
-      <small>You can cancel your subscription at any time</small><br>
-      <a href="{{ url_for('register') }}" style="color: white; text-decoration: underline;">← Back to Registration</a>
+      <a href="{{ url_for('reactivate_page') }}" style="color: white; text-decoration: underline;">← Back</a>
     </p>
   </div>
 </main>

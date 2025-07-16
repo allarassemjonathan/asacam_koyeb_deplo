@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+
+{% block title %}Cancel Subscription{% endblock %}
+{% block content %}
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    font-family: 'Chakra Petch', sans-serif;
+  }
+  .center-wrapper {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    box-sizing: border-box;
+  }
+  .modal-content {
+    background: rgba(0, 0, 0, 0.9);
+    padding: 2rem;
+    border-radius: 12px;
+    width: 100%;
+    max-width: 520px;
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: white;
+    text-align: center;
+  }
+  .warning-icon {
+    font-size: 3rem;
+    color: #ffc107;
+    margin-bottom: 1rem;
+  }
+  .btn {
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 6px;
+    font-size: 1rem;
+    cursor: pointer;
+    text-decoration: none;
+    display: block;
+    margin: 0.5rem 0;
+    width: 100%;
+    text-align: center;
+  }
+  .btn-danger {
+    background: #dc3545;
+    color: white;
+  }
+  .btn-warning {
+    background: #ffc107;
+    color: black;
+  }
+  .btn-success {
+    background: #4CAF50;
+    color: white;
+  }
+  .btn-secondary {
+    background: #6c757d;
+    color: white;
+  }
+  .btn:hover {
+    opacity: 0.9;
+  }
+  .cancellation-option {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    padding: 1rem;
+    border-radius: 8px;
+    margin: 1rem 0;
+    text-align: left;
+  }
+  .pending-notice {
+    background: rgba(255, 193, 7, 0.1);
+    border: 1px solid rgba(255, 193, 7, 0.3);
+    padding: 1rem;
+    border-radius: 8px;
+    margin: 1rem 0;
+  }
+</style>
+
+<main class="center-wrapper">
+  <div class="modal-content">
+    <div class="warning-icon">⚠️</div>
+    
+    {% if pending_cancellation %}
+      <!-- User already has pending cancellation -->
+      <h2 style="margin-top: 0; color: #ffc107;">Subscription Cancellation Pending</h2>
+      
+      <p style="color: rgba(255, 255, 255, 0.8); margin-bottom: 1.5rem;">
+        Hi {{ current_user.first_name }}, your subscription is set to cancel at the end of your billing period.
+      </p>
+
+      <div class="pending-notice">
+        <p style="margin: 0; font-size: 0.9rem; color: rgba(255, 193, 7, 0.9);">
+          <strong>📅 Current Status:</strong> Your subscription will end on {{ current_user.subscription_end_date.strftime('%B %d, %Y') if current_user.subscription_end_date else 'your next billing date' }}. You have full access until then.
+        </p>
+      </div>
+
+      <p style="color: rgba(255, 255, 255, 0.9); margin-bottom: 1.5rem;">
+        What would you like to do?
+      </p>
+
+      <form method="POST">
+        <button type="submit" name="action" value="reactivate" class="btn btn-success">
+          Reactivate My Subscription
+        </button>
+        
+        <button type="submit" name="action" value="cancel_immediately" class="btn btn-danger">
+          Cancel Immediately (Lose Access Now)
+        </button>
+        
+        <a href="{{ url_for('home') }}" class="btn btn-secondary">
+          Keep Current Settings
+        </a>
+      </form>
+
+    {% else %}
+      <!-- First time cancelling -->
+      <h2 style="margin-top: 0; color: #dc3545;">Cancel Subscription?</h2>
+      
+      <p style="color: rgba(255, 255, 255, 0.8); margin-bottom: 1.5rem;">
+        Hi {{ current_user.first_name }}, how would you like to cancel your subscription?
+      </p>
+
+      <div class="cancellation-option">
+        <h4 style="margin: 0 0 0.5rem; color: #ffc107;">Option 1: Cancel at Period End</h4>
+        <p style="margin: 0; font-size: 0.9rem; color: rgba(255, 255, 255, 0.8);">
+          Keep access until your next billing date, then cancel. No immediate loss of access.
+        </p>
+      </div>
+
+      <div class="cancellation-option">
+        <h4 style="margin: 0 0 0.5rem; color: #dc3545;">Option 2: Cancel Immediately</h4>
+        <p style="margin: 0; font-size: 0.9rem; color: rgba(255, 255, 255, 0.8);">
+          Cancel right now and lose access immediately. You can reactivate anytime.
+        </p>
+      </div>
+
+      <form method="POST">
+        <button type="submit" name="action" value="cancel_at_period_end" class="btn btn-warning">
+          Cancel at Period End (Recommended)
+        </button>
+        
+        <button type="submit" name="action" value="cancel_immediately" class="btn btn-danger">
+          Cancel Immediately
+        </button>
+        
+        <button type="submit" name="action" value="keep_subscription" class="btn btn-secondary">
+          Keep My Subscription
+        </button>
+      </form>
+    {% endif %}
+
+    <p style="margin-top: 2rem; font-size: 0.9rem; color: rgba(255, 255, 255, 0.6);">
+      Monthly App Access - $34.90/month
+    </p>
+  </div>
+</main>
+{% endblock %}

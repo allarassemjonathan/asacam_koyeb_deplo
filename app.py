@@ -11,8 +11,10 @@ import openai
 import os
 from dotenv import load_dotenv
 import redis
+import json
 import threading
 
+from pathlib import Path
 """Basic connection example.
 """
 
@@ -80,6 +82,9 @@ def load_user(user_id):
 def generate_verification_code():
     """Generate 6-digit verification code"""
     return ''.join(secrets.choice(string.digits) for _ in range(6))
+
+app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')
+app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
 
 def send_verification_email_for_registration(email, first_name, code):
     """Send verification code for registration"""
@@ -172,7 +177,8 @@ def index():
     """Home page - redirects based on user status"""
     if current_user.is_authenticated:
         # All users in database are email verified, only check payment
-        if not current_user.has_paid:
+        if current_user.has_paid or (hasattr(current_user, 'subscription_status') and current_user.subscription_status == 'active'):
+    # Allow access
             return redirect(url_for('payment'))
         else:
             return redirect(url_for('home'))
@@ -185,7 +191,7 @@ def mission():
 
 # Add this near your other global variables
 current_user_email = None
-email_cooldown_time = 120
+email_cooldown_time = 30
 last_alert_email_time = 0
 
 # Thread-safe email storage
@@ -207,8 +213,27 @@ def login():
         if user and user.check_password(password):
             login_user(user)
             
-            # All users in database are verified, only check payment
-            if not user.has_paid:
+            # DEBUG: Show user status
+            print(f"=== LOGIN DEBUG ===")
+            print(f"User: {user.email}")
+            print(f"has_paid: {user.has_paid}")
+            print(f"subscription_status: {getattr(user, 'subscription_status', 'NOT SET')}")
+            
+            # Check if user has canceled subscription FIRST
+            if hasattr(user, 'subscription_status') and user.subscription_status == 'canceled':
+                print("❌ User has canceled subscription - redirecting to reactivate")
+                return redirect(url_for('reactivate_page'))
+            
+            # Check if user has paid or has active subscription
+            has_access = (
+                user.has_paid and 
+                (not hasattr(user, 'subscription_status') or user.subscription_status in ['active', 'incomplete'])
+            )
+            
+            print(f"has_access: {has_access}")
+            
+            if not has_access:
+                print("❌ User has no access - redirecting to payment")
                 return redirect(url_for('payment'))
             else:
                 # Store in session manually
@@ -222,7 +247,7 @@ def login():
                 
                 set_user_email_for_session(session_id, user.email)
                 
-                print(f"✅ User logged in: {user.email}")
+                print(f"✅ User logged in successfully: {user.email}")
                 return redirect(url_for('home'))
         else:
             flash('Invalid email or password.', 'error')
@@ -328,74 +353,64 @@ def send_alert_email(body, recipient_email):
         print(f"Error sending alert email: {e}")
         return False
     
-@app.route('/register', methods=['GET', 'POST'])  # <-- ADD THIS DECORATOR!
+@app.route('/register', methods=['GET', 'POST'])
 def register():
-    """User registration with email verification"""
+    """Registration page - sends verification email first"""
     if request.method == 'POST':
-        # Get form data
-        email = request.form.get('email').lower().strip()
-        password = request.form.get('password')
-        confirm_password = request.form.get('confirm_password')
-        first_name = request.form.get('first_name').strip()
-        last_name = request.form.get('last_name').strip()
-
-        # Validate data
-        if not all([email, password, confirm_password, first_name, last_name]):
-            flash('All fields are required.', 'error')
-            return render_template('register.html')
-
-        if password != confirm_password:
-            flash('Passwords do not match.', 'error')
-            return render_template('register.html')
-
-        if len(password) < 6:
-            flash('Password must be at least 6 characters long.', 'error')
+        email = request.form['email'].strip().lower()
+        password = request.form['password']
+        first_name = request.form['first_name'].strip()
+        last_name = request.form['last_name'].strip()
+        
+        # Validate input
+        if not email or not password or not first_name or not last_name:
+            flash('All fields are required', 'error')
             return render_template('register.html')
         
-        # Check if user already exists
+        # Check if user already exists in database
         if User.query.filter_by(email=email).first():
-            flash('Email already registered. Please login instead.', 'error')
+            flash('Email already registered', 'error')
             return render_template('register.html')
         
-        # Store user data temporarily (don't save to database yet)
-        temp_user_data = {
+        # Store registration data in session (NOT database)
+        session['registration_data'] = {
             'email': email,
             'password': password,
             'first_name': first_name,
             'last_name': last_name
         }
         
-        # Generate verification code and send email
-        verification_code = generate_verification_code()
+        # Generate verification code
+        verification_code = ''.join(secrets.choice(string.digits) for _ in range(6))
+        session['verification_code'] = verification_code
+        session['code_expires'] = (datetime.utcnow() + timedelta(minutes=5)).isoformat()
         
+        # Send verification email
         if send_verification_email_for_registration(email, first_name, verification_code):
-            # Store in session for verification
-            session['temp_user'] = temp_user_data
-            session['verification_code'] = verification_code
-            session['code_expires'] = (datetime.utcnow() + timedelta(minutes=5)).isoformat()
-            
-            flash('Check your email for verification code!', 'success')
-            return redirect(url_for('verify_email'))  # <-- USE verify_email, not verify_registration
+            flash('Registration successful! Please check your email for the verification code.', 'success')
+            return redirect(url_for('verify_email_for_payment'))
         else:
             flash('Failed to send verification email. Please try again.', 'error')
             return render_template('register.html')
-        
+    
     return render_template('register.html')
 
-@app.route('/verify-email', methods=['GET', 'POST'])
-def verify_email():
-    """Email verification during registration"""
+@app.route('/verify-email-for-payment', methods=['GET', 'POST'])
+def verify_email_for_payment():
+    """Email verification before payment"""
     # Check if we have pending registration data
-    if 'temp_user' not in session or 'verification_code' not in session:
+    if 'registration_data' not in session or 'verification_code' not in session:
         flash('No pending registration found. Please register again.', 'error')
         return redirect(url_for('register'))
+    
+    registration_data = session['registration_data']
     
     # Check if code has expired
     if 'code_expires' in session:
         code_expires = datetime.fromisoformat(session['code_expires'])
         if datetime.utcnow() > code_expires:
             # Clear expired session data
-            session.pop('temp_user', None)
+            session.pop('registration_data', None)
             session.pop('verification_code', None)
             session.pop('code_expires', None)
             flash('Verification code expired. Please register again.', 'error')
@@ -409,46 +424,27 @@ def verify_email():
             
             if not entered_code:
                 flash('Please enter the verification code.', 'error')
-                return render_template('verify_email.html', email=session['temp_user']['email'])
+                return render_template('verify_email_for_payment.html', email=registration_data['email'])
             
             if entered_code == session['verification_code']:
-                # Code is correct! Create user in database
-                temp_data = session['temp_user']
-                
-                user = User(
-                    email=temp_data['email'],
-                    first_name=temp_data['first_name'],
-                    last_name=temp_data['last_name']
-                )
-                user.set_password(temp_data['password'])
-                # User is verified since they completed email verification
-                
-                db.session.add(user)
-                db.session.commit()
-                
-                # Clear session data
-                session.pop('temp_user', None)
+                # Code is correct! Clear verification data and proceed to payment
                 session.pop('verification_code', None)
                 session.pop('code_expires', None)
                 
-                # Log user in and redirect to payment
-                login_user(user)
-
-                # cashing user info
-                session['username'] = user.first_name
-                session['email'] = user.email
-                flash('Registration complete! Welcome!', 'success')
+                # Mark as verified in session
+                session['email_verified'] = True
+                
+                flash('Email verified successfully! Please complete payment to create your account.', 'success')
                 return redirect(url_for('payment'))
             else:
                 flash('Invalid verification code.', 'error')
         
         elif action == 'resend':
             # Generate new code and send
-            new_code = generate_verification_code()
-            temp_data = session['temp_user']
+            new_code = ''.join(secrets.choice(string.digits) for _ in range(6))
             
-            if send_verification_email_for_registration(temp_data['email'], 
-                                                       temp_data['first_name'], 
+            if send_verification_email_for_registration(registration_data['email'], 
+                                                       registration_data['first_name'], 
                                                        new_code):
                 session['verification_code'] = new_code
                 session['code_expires'] = (datetime.utcnow() + timedelta(minutes=5)).isoformat()
@@ -456,14 +452,23 @@ def verify_email():
             else:
                 flash('Failed to send new code. Please try again.', 'error')
     
-    return render_template('verify_email.html', email=session['temp_user']['email'])
+    return render_template('verify_email_for_payment.html', email=registration_data['email'])
+
 
 @app.route('/payment', methods=['GET', 'POST'])
-@login_required
 def payment():
-    """Payment page with Stripe integration"""
-    if current_user.has_paid:
-        return redirect(url_for('home'))
+    """Payment page - creates user only after payment confirmation"""
+    # Check if registration data exists in session
+    if 'registration_data' not in session:
+        flash('Please complete registration first.', 'error')
+        return redirect(url_for('register'))
+    
+    # Check if email was verified
+    if not session.get('email_verified'):
+        flash('Please verify your email first.', 'error')
+        return redirect(url_for('verify_email_for_payment'))
+    
+    registration_data = session['registration_data']
     
     if request.method == 'POST':
         try:
@@ -471,41 +476,33 @@ def payment():
             checkout_session = stripe.checkout.Session.create(
                 payment_method_types=['card'],
                 line_items=[{
-                    'price_data': {
-                        'currency': 'usd',
-                        'product_data': {
-                            'name': 'App Access Payment',
-                            'description': 'One-time payment for app access',
-                        },
-                        'unit_amount': 100,  # $100 in cents
-                    },
+                    'price': 'price_1Rkd2ZFr9wM1tN4f7UBbwR1y',  # Replace with your actual price_id
                     'quantity': 1,
                 }],
-                mode='payment',
+                mode='subscription',
                 success_url=url_for('payment_success', _external=True),
                 cancel_url=url_for('payment_cancel', _external=True),
-                client_reference_id=str(current_user.id),  # Track which user paid
+                customer_email=registration_data['email'],
+                metadata={
+                    'registration_data': json.dumps(registration_data)
+                }
             )
             
             return redirect(checkout_session.url, code=303)
             
         except stripe.error.StripeError as e:
             flash(f'Payment error: {str(e)}', 'error')
-            return render_template('payment.html')
+            return render_template('payment.html', user_data=registration_data)
     
-    return render_template('payment.html')
+    return render_template('payment.html', user_data=registration_data)
 
 @app.route('/payment-success')
-@login_required
 def payment_success():
     """Handle successful payment"""
-    # Mark user as paid
-    current_user.has_paid = True
-    current_user.payment_date = datetime.utcnow()
-    db.session.commit()
-    
-    flash('Payment successful! Welcome to the app!', 'success')
-    return redirect(url_for('home'))
+    # Don't require login since user might not exist yet
+    # Don't update user here - webhooks handle that
+    flash('Subscription created successfully! Your account is being activated...', 'success')
+    return render_template('payment_success.html')
 
 @app.route('/payment-cancel')
 @login_required
@@ -514,15 +511,519 @@ def payment_cancel():
     flash('Payment was cancelled. You can try again anytime.', 'info')
     return redirect(url_for('payment'))
 
+@app.route('/stripe-webhook', methods=['POST'])
+def stripe_webhook():
+    """Handle Stripe webhook events"""
+    payload = request.get_data(as_text=True)
+    sig_header = request.headers.get('Stripe-Signature')
+    
+    try:
+        event = json.loads(payload)
+    except json.JSONDecodeError:
+        return 'Invalid payload', 400
+    
+    # Handle the event
+    if event['type'] == 'checkout.session.completed':
+        session = event['data']['object']
+        handle_checkout_completed(session)
+    
+    elif event['type'] == 'customer.subscription.created':
+        subscription = event['data']['object']
+        handle_subscription_created(subscription)
+    
+    elif event['type'] == 'customer.subscription.updated':
+        subscription = event['data']['object']
+        handle_subscription_updated(subscription)
+    
+    elif event['type'] == 'customer.subscription.deleted':
+        subscription = event['data']['object']
+        handle_subscription_deleted(subscription)
+    
+    elif event['type'] == 'invoice.payment_succeeded':
+        invoice = event['data']['object']
+        handle_payment_succeeded(invoice)
+    
+    elif event['type'] == 'invoice.payment_failed':
+        invoice = event['data']['object']
+        handle_payment_failed(invoice)
+    
+    return 'Success', 200
+
+def handle_checkout_completed(session):
+    """Handle successful checkout - CREATE USER HERE"""
+    print(f"=== CHECKOUT COMPLETED DEBUG ===")
+    print(f"Session ID: {session.get('id')}")
+    print(f"Customer ID: {session.get('customer')}")
+    print(f"Session metadata: {session.get('metadata', {})}")
+    
+    if 'registration_data' in session.get('metadata', {}):
+        try:
+            # Get registration data from session metadata
+            registration_data = json.loads(session['metadata']['registration_data'])
+            print(f"Registration data found: {registration_data}")
+            
+            # Check if user already exists
+            existing_user = User.query.filter_by(email=registration_data['email']).first()
+            if existing_user:
+                print(f"User already exists: {registration_data['email']}")
+                return
+            
+            # Create the user in database ONLY after payment confirmation
+            user = User(
+                email=registration_data['email'],
+                first_name=registration_data['first_name'],
+                last_name=registration_data['last_name'],
+                is_email_verified=True,  # Skip email verification since they paid
+                stripe_customer_id=session['customer'],
+                subscription_status='active',  # Set subscription status
+                subscription_start_date=datetime.utcnow(),
+                has_paid=True,  # IMPORTANT: Set has_paid to True
+                payment_date=datetime.utcnow()
+            )
+            user.set_password(registration_data['password'])
+            
+            db.session.add(user)
+            db.session.commit()
+            
+            print(f"✅ User created successfully: {user.email}")
+            print(f"✅ has_paid: {user.has_paid}")
+            print(f"✅ subscription_status: {user.subscription_status}")
+            
+        except Exception as e:
+            print(f"❌ Error creating user after payment: {e}")
+            import traceback
+            traceback.print_exc()
+    else:
+        print("❌ No registration_data found in session metadata")
+        print(f"Available metadata keys: {list(session.get('metadata', {}).keys())}")
+
+def handle_subscription_created(subscription):
+    """Handle new subscription creation"""
+    customer_id = subscription['customer']
+    user = User.query.filter_by(stripe_customer_id=customer_id).first()
+    
+    if user:
+        print(f"Updating user {user.email} with subscription ID: {subscription['id']}")
+        user.stripe_subscription_id = subscription['id']
+        user.subscription_status = subscription['status']
+        user.subscription_start_date = datetime.fromtimestamp(subscription['created'])
+        user.has_paid = True
+        user.payment_date = datetime.fromtimestamp(subscription['created'])
+        db.session.commit()
+        print(f"✅ Subscription created for user {user.email}")
+        print(f"✅ stripe_subscription_id: {user.stripe_subscription_id}")
+
+
+def handle_subscription_updated(subscription):
+    """Handle subscription status updates"""
+    customer_id = subscription['customer']
+    user = User.query.filter_by(stripe_customer_id=customer_id).first()
+    
+    if user:
+        print(f"Subscription status changed to: {subscription['status']} for user: {user.email}")
+        user.subscription_status = subscription['status']
+        user.has_paid = (subscription['status'] in ['active', 'incomplete'])  # Update old field
+        if subscription['status'] == 'canceled':
+            user.subscription_end_date = datetime.fromtimestamp(subscription['canceled_at'])
+        db.session.commit()
+        print(f"✅ Subscription updated for user {user.email}: {subscription['status']}")
+
+def handle_subscription_deleted(subscription):
+    """Handle subscription cancellation"""
+    customer_id = subscription['customer']
+    user = User.query.filter_by(stripe_customer_id=customer_id).first()
+    
+    if user:
+        user.subscription_status = 'canceled'
+        user.has_paid = False  # Update old field
+        user.subscription_end_date = datetime.fromtimestamp(subscription['canceled_at'])
+        db.session.commit()
+        print(f"✅ Subscription canceled for user {user.email}")
+
+def handle_payment_succeeded(invoice):
+    """Handle successful payment"""
+    customer_id = invoice['customer']
+    user = User.query.filter_by(stripe_customer_id=customer_id).first()
+    
+    if user:
+        # Update subscription status if not already active
+        if not hasattr(user, 'subscription_status') or user.subscription_status != 'active':
+            user.subscription_status = 'active'
+        user.has_paid = True  # Update old field
+        user.payment_date = datetime.utcnow()
+        db.session.commit()
+        print(f"✅ Payment succeeded for user {user.email}")
+
+def handle_payment_failed(invoice):
+    """Handle failed payment"""
+    customer_id = invoice['customer']
+    user = User.query.filter_by(stripe_customer_id=customer_id).first()
+    
+    if user:
+        if hasattr(user, 'subscription_status'):
+            user.subscription_status = 'past_due'
+        user.has_paid = False  # Update old field
+        db.session.commit()
+        print(f"✅ Payment failed for user {user.email}")
+
+@app.route('/cancel-subscription', methods=['GET', 'POST'])
+@login_required
+def cancel_subscription():
+    """Cancel user's subscription"""
+    print(f"=== CANCEL SUBSCRIPTION DEBUG ===")
+    print(f"User: {current_user.email}")
+    print(f"has_paid: {current_user.has_paid}")
+    print(f"subscription_status: {getattr(current_user, 'subscription_status', 'NOT SET')}")
+    print(f"stripe_subscription_id: {getattr(current_user, 'stripe_subscription_id', 'NOT SET')}")
+    print(f"stripe_customer_id: {getattr(current_user, 'stripe_customer_id', 'NOT SET')}")
+    
+    # Check if user has an active subscription (handle both old and new users)
+    has_active_subscription = (
+        current_user.has_paid or 
+        (hasattr(current_user, 'subscription_status') and current_user.subscription_status in ['active', 'incomplete'])
+    )
+    
+    if not has_active_subscription:
+        print("❌ User does not have active subscription")
+        flash('You do not have an active subscription to cancel.', 'error')
+        return redirect(url_for('home'))
+    
+    # Find subscription ID if missing
+    if not current_user.stripe_subscription_id and current_user.stripe_customer_id:
+        try:
+            print("Looking up subscription for customer...")
+            subscriptions = stripe.Subscription.list(
+                customer=current_user.stripe_customer_id,
+                status='active'
+            )
+            
+            if subscriptions.data:
+                subscription_id = subscriptions.data[0].id
+                print(f"Found subscription: {subscription_id}")
+                
+                # Update user with the subscription ID
+                current_user.stripe_subscription_id = subscription_id
+                db.session.commit()
+            else:
+                print("❌ No active subscriptions found")
+                flash('No active subscription found to cancel.', 'error')
+                return redirect(url_for('home'))
+        except stripe.error.StripeError as e:
+            print(f"❌ Error looking up subscription: {e}")
+            flash('Error accessing subscription information.', 'error')
+            return redirect(url_for('home'))
+    
+    # Check if subscription is already set to cancel at period end
+    pending_cancellation = False
+    if current_user.stripe_subscription_id:
+        try:
+            subscription = stripe.Subscription.retrieve(current_user.stripe_subscription_id)
+            pending_cancellation = subscription.cancel_at_period_end
+            print(f"Pending cancellation: {pending_cancellation}")
+        except stripe.error.StripeError as e:
+            print(f"Error checking subscription: {e}")
+    
+    if request.method == 'POST':
+        action = request.form.get('action')
+        print(f"POST request received - action: {action}")
+        
+        if not current_user.stripe_subscription_id:
+            print("❌ No subscription ID available")
+            flash('No subscription found to cancel.', 'error')
+            return render_template('cancel_subscription.html', pending_cancellation=pending_cancellation)
+        
+        try:
+            # Handle different actions
+            if action == 'cancel_immediately':
+                # Cancel immediately (whether it's first time or changing from period end)
+                print(f"Canceling subscription immediately: {current_user.stripe_subscription_id}")
+                
+                subscription = stripe.Subscription.delete(current_user.stripe_subscription_id)
+                print("✅ Subscription canceled immediately")
+                
+                # Update user in database
+                current_user.subscription_status = 'canceled'
+                current_user.subscription_end_date = datetime.utcnow()
+                current_user.has_paid = False
+                db.session.commit()
+                
+                flash('Your subscription has been canceled immediately. You can reactivate it anytime.', 'success')
+                return redirect(url_for('reactivate_page'))
+        
+            elif action == 'cancel_at_period_end':
+                # Cancel at end of period (first time only)
+                print(f"Setting subscription to cancel at period end: {current_user.stripe_subscription_id}")
+                
+                subscription = stripe.Subscription.modify(
+                    current_user.stripe_subscription_id,
+                    cancel_at_period_end=True
+                )
+                print("✅ Subscription set to cancel at period end")
+                
+                # Update user in database
+                current_user.subscription_status = 'active'  # Keep active until period end
+                current_user.subscription_end_date = datetime.fromtimestamp(subscription['current_period_end'])
+                current_user.has_paid = True  # Keep access until period end
+                db.session.commit()
+                
+                end_date = datetime.fromtimestamp(subscription['current_period_end']).strftime('%B %d, %Y')
+                flash(f'Your subscription will be canceled on {end_date}. You can reactivate anytime before then.', 'success')
+                return redirect(url_for('home'))
+        
+            elif action == 'reactivate':
+                # Reactivate subscription (remove pending cancellation)
+                print(f"Reactivating subscription: {current_user.stripe_subscription_id}")
+                
+                subscription = stripe.Subscription.modify(
+                    current_user.stripe_subscription_id,
+                    cancel_at_period_end=False
+                )
+                print("✅ Subscription reactivated")
+                
+                # Update user in database
+                current_user.subscription_status = 'active'
+                current_user.subscription_end_date = None
+                current_user.has_paid = True
+                db.session.commit()
+                
+                flash('Your subscription has been reactivated! Welcome back!', 'success')
+                return redirect(url_for('home'))
+        
+            elif action == 'keep_subscription':
+                # Keep subscription as-is
+                flash('Subscription kept active.', 'info')
+                return redirect(url_for('home'))
+                
+        except stripe.error.StripeError as e:
+            print(f"❌ Stripe error: {e}")
+            flash(f'Error processing request: {str(e)}', 'error')
+        except Exception as e:
+            print(f"❌ General error: {e}")
+            flash(f'Error: {str(e)}', 'error')
+    
+    print("Showing cancel subscription page")
+    return render_template('cancel_subscription.html', pending_cancellation=pending_cancellation)
+
+@app.route('/reactivate')
+@login_required
+def reactivate_page():
+    """Page for reactivating subscription"""
+    print(f"=== REACTIVATE PAGE DEBUG ===")
+    print(f"User: {current_user.email}")
+    print(f"subscription_status: {getattr(current_user, 'subscription_status', 'NOT SET')}")
+    
+    # Only show this page to users with canceled subscriptions
+    if not (hasattr(current_user, 'subscription_status') and current_user.subscription_status == 'canceled'):
+        print("❌ User does not have canceled subscription - redirecting to home")
+        return redirect(url_for('home'))
+    
+    print("✅ Showing reactivate page")
+    return render_template('reactivate_subscription.html')
+
+@app.route('/reactivate-payment', methods=['GET', 'POST'])
+@login_required
+def reactivate_payment():
+    """Payment page for reactivating subscription"""
+    if not (hasattr(current_user, 'subscription_status') and current_user.subscription_status == 'canceled'):
+        flash('You do not have a canceled subscription to reactivate.', 'error')
+        return redirect(url_for('home'))
+    
+    if request.method == 'POST':
+        try:
+            # Create Stripe checkout session for reactivation
+            checkout_session = stripe.checkout.Session.create(
+                payment_method_types=['card'],
+                line_items=[{
+                    'price': 'price_1Rkd2ZFr9wM1tN4f7UBbwR1y',  # Your price ID
+                    'quantity': 1,
+                }],
+                mode='subscription',
+                success_url=url_for('reactivate_success', _external=True),
+                cancel_url=url_for('reactivate_page', _external=True),
+                customer=current_user.stripe_customer_id,
+            )
+            
+            return redirect(checkout_session.url, code=303)
+            
+        except stripe.error.StripeError as e:
+            flash(f'Payment error: {str(e)}', 'error')
+            return render_template('reactivate_payment.html')
+    
+    return render_template('reactivate_payment.html')
+
+@app.route('/reactivate-success')
+@login_required
+def reactivate_success():
+    """Handle successful reactivation payment"""
+    flash('Your subscription has been reactivated successfully! Welcome back!', 'success')
+    return redirect(url_for('home'))
+
+@app.route('/reactivate-subscription', methods=['POST'])
+@login_required
+def reactivate_subscription():
+    """Reactivate a canceled subscription"""
+    action = request.form.get('action', 'reactivate')
+    
+    if not (hasattr(current_user, 'subscription_status') and current_user.subscription_status == 'canceled'):
+        flash('You do not have a canceled subscription to reactivate.', 'error')
+        return redirect(url_for('home'))
+    
+    if action == 'reactivate':
+        try:
+            print(f"=== REACTIVATE DEBUG ===")
+            print(f"User: {current_user.email}")
+            print(f"stripe_subscription_id: {current_user.stripe_subscription_id}")
+            print(f"stripe_customer_id: {current_user.stripe_customer_id}")
+            
+            # First, try to reactivate existing subscription (for end-of-period cancellations)
+            if current_user.stripe_subscription_id:
+                try:
+                    print("Attempting to reactivate existing subscription...")
+                    subscription = stripe.Subscription.modify(
+                        current_user.stripe_subscription_id,
+                        cancel_at_period_end=False  # Remove the cancellation
+                    )
+                    
+                    print("✅ Existing subscription reactivated successfully")
+                    
+                    # Update user in database
+                    current_user.subscription_status = 'active'
+                    current_user.subscription_end_date = None
+                    current_user.has_paid = True
+                    db.session.commit()
+                    
+                    flash('Your subscription has been reactivated! Welcome back!', 'success')
+                    return redirect(url_for('home'))
+                    
+                except stripe.error.InvalidRequestError as e:
+                    print(f"Cannot reactivate existing subscription: {e}")
+                    print("Will create new subscription instead...")
+                    # Fall through to create new subscription
+                    
+            # Create new subscription (for immediate cancellations or if reactivation failed)
+            if current_user.stripe_customer_id:
+                print("Creating new subscription...")
+                
+                try:
+                    subscription = stripe.Subscription.create(
+                        customer=current_user.stripe_customer_id,
+                        items=[{
+                            'price': 'price_1Rkd2ZFr9wM1tN4f7UBbwR1y',  # Your price ID
+                        }],
+                    )
+                    
+                    print(f"✅ New subscription created: {subscription.id}")
+                    
+                    # Update user in database
+                    current_user.stripe_subscription_id = subscription.id
+                    current_user.subscription_status = 'active'
+                    current_user.subscription_start_date = datetime.fromtimestamp(subscription.created)
+                    current_user.subscription_end_date = None
+                    current_user.has_paid = True
+                    db.session.commit()
+                    
+                    flash('Your subscription has been reactivated! Welcome back!', 'success')
+                    return redirect(url_for('home'))
+                    
+                except stripe.error.InvalidRequestError as e:
+                    if 'no attached payment source' in str(e).lower():
+                        print("❌ No payment method - redirecting to checkout")
+                        # No payment method - need to go through checkout again
+                        flash('Please provide payment information to reactivate your subscription.', 'info')
+                        return redirect(url_for('reactivate_payment'))
+                    else:
+                        raise e
+            else:
+                print("❌ No stripe_customer_id found")
+                flash('No customer information found. Please contact support.', 'error')
+                
+        except stripe.error.CardError as e:
+            print(f"❌ Card error: {e}")
+            flash('Payment method issue. Please update your payment information and try again.', 'error')
+        except stripe.error.StripeError as e:
+            print(f"❌ Stripe error: {e}")
+            flash(f'Error reactivating subscription: {str(e)}', 'error')
+        except Exception as e:
+            print(f"❌ General error: {e}")
+            flash(f'Error: {str(e)}', 'error')
+    
+    elif action == 'stay_canceled':
+        # User chose to stay canceled
+        print(f"=== STAY CANCELED DEBUG ===")
+        print(f"User: {current_user.email}")
+        
+        # Make sure user stays canceled
+        current_user.subscription_status = 'canceled'
+        current_user.has_paid = False
+        db.session.commit()
+        
+        flash('You have chosen to keep your subscription canceled.', 'info')
+        return redirect(url_for('logout'))
+    
+    return redirect(url_for('reactivate_page'))
+
 @app.route('/home')
 @login_required
 def home():
-    """Home page - only for users who have paid"""
-    # Remove email verification check - all logged-in users are verified
+    """Home page - only for users who have active subscriptions"""
+    print(f"=== HOME ACCESS DEBUG ===")
+    print(f"User: {current_user.email}")
+    print(f"has_paid: {current_user.has_paid}")
+    print(f"subscription_status: {getattr(current_user, 'subscription_status', 'NOT SET')}")
+    
+    # Check if user has canceled subscription
+    if hasattr(current_user, 'subscription_status') and current_user.subscription_status == 'canceled':
+        print("❌ Canceled user trying to access home - redirecting to reactivate")
+        return redirect(url_for('reactivate_page'))
+    
+    # Check if user has paid or has active subscription
+    has_access = (
+        current_user.has_paid and 
+        (not hasattr(current_user, 'subscription_status') or current_user.subscription_status in ['active', 'incomplete'])
+    )
+    
+    print(f"has_access: {has_access}")
+    
+    if not has_access:
+        print("❌ User has no access - redirecting to payment")
+        return redirect(url_for('payment'))
+    
+    print("✅ User has access - showing home page")
+    return render_template('home.html')
+
+DATA_FILE = Path("static/data/cameras.json")
+
+@app.route("/api/cameras", methods=["GET"])
+def get_cameras():
+    if DATA_FILE.exists():
+        with open(DATA_FILE) as f:
+            return jsonify(json.load(f))
+    return jsonify([])
+
+@app.route("/api/cameras", methods=["POST"])
+def save_cameras():
+    data = request.get_json()
+    with open(DATA_FILE, "w") as f:
+        json.dump(data, f, indent=2)
+    return jsonify({"status": "success"})
+
+
+@app.route('/cameras')
+@login_required
+def cameras():
+    """Camera management page"""
     if not current_user.has_paid:
         return redirect(url_for('payment'))
     
-    return render_template('home.html')
+    return render_template('cameras.html')
+
+CAMERA_FILE = Path("static/data/cameras.json")
+def load_cameras():
+    if CAMERA_FILE.exists():
+        with open(CAMERA_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return []
+
 
 @app.route('/logout')
 @login_required
@@ -877,57 +1378,6 @@ smtp_server = os.environ.get('SMTP_SERVER')
 smtp_port = os.environ.get('SMTP_PORT')
 your_email = os.environ.get('EMAIL')
 your_password = os.environ.get('CODE')
-
-
-def email_reception(body, recipient_email):
-
-    # sending the email
-    subject = f"ALERT DETECTED"
-    
-    # create the MIME message
-    msg = MIMEMultipart()
-    msg['From'] = EMAIL_USER
-    msg['To'] = recipient_email
-    msg['Subject'] = subject
-
-    # add an HTML body with the embedded image
-    html = f"""
-    <html>
-    <body>
-        <br>
-        <p>
-        {body}
-        </p>
-        <br>
-    </body>
-    </html>
-    """
-    msg.attach(MIMEText(html, 'html'))
-
-    # Connect to the SMTP server and send the email
-    try:
-        # Establish connection to Gmail's SMTP server
-        server = smtplib.SMTP(smtp_server, smtp_port)
-        server.starttls()  # Secure the connection
-
-        # Log in to the server
-        server.login(your_email, your_password)
-
-        # Send the email
-        server.send_message(msg)
-
-        print("Email sent successfully!")
-
-    except Exception as e:
-        print(f"Error sending email: {e}")
-
-    finally:
-        # Close the connection to the server
-        server.quit()
-
-    # You could include additional validation for the URL here if needed
-    return jsonify(success=True)
-
 
 def interpret_frame_with_openai(frame):
     global prompt
