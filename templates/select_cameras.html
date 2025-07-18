@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+
+{% block title %}Select Camera Plan{% endblock %}
+{% block content %}
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    font-family: 'Chakra Petch', sans-serif;
+  }
+  .center-wrapper {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    box-sizing: border-box;
+  }
+  .modal-content {
+    background: rgba(0, 0, 0, 0.9);
+    padding: 2rem;
+    border-radius: 12px;
+    width: 100%;
+    max-width: 420px;
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: white;
+  }
+  .form-group {
+    margin-bottom: 1rem;
+  }
+  .form-control {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    font-size: 1rem;
+    box-sizing: border-box;
+  }
+  .form-control:focus {
+    outline: none;
+    border-color: #4CAF50;
+  }
+  .btn {
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 6px;
+    font-size: 1rem;
+    cursor: pointer;
+    width: 100%;
+    margin-top: 1rem;
+  }
+  .btn-primary {
+    background: #ffffff;
+    color: rgb(0, 0, 0);
+  }
+  .btn:hover {
+    opacity: 0.9;
+  }
+  .pricing-info {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+  }
+  .camera-examples {
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.7);
+    margin-top: 1rem;
+  }
+</style>
+
+<main class="center-wrapper">
+  <div class="modal-content">
+    <h2 style="margin-top: 0;">Select Your Camera Plan</h2>
+    <p style="color: rgba(255, 255, 255, 0.8); margin-bottom: 1.5rem;">
+      Hi {{ user_data.first_name }}, how many cameras do you want to monitor?
+    </p>
+
+    <div class="pricing-info">
+      <h3 style="margin: 0 0 0.5rem;">Pricing</h3>
+      <p style="margin: 0; font-size: 1.1rem; color: #ffffff;">
+        <strong>$1.00 per camera per month</strong>
+      </p>
+    </div>
+
+    <form method="POST">
+      <div class="form-group">
+        <label for="num_cameras" style="display: block; margin-bottom: 0.5rem;">
+          Number of Cameras:
+        </label>
+        <input 
+          type="number" 
+          id="num_cameras" 
+          name="num_cameras" 
+          class="form-control" 
+          min="1" 
+          max="50" 
+          value="1" 
+          required
+          oninput="updateTotal()"
+        >
+      </div>
+
+      <div class="pricing-info">
+        <h4 style="margin: 0 0 0.5rem;">Your Plan</h4>
+        <p style="margin: 0;" id="plan-details">
+          <span id="camera-count">1</span> camera(s) × $34.90 = 
+          <strong style="color: #ffffff;">$<span id="total-cost">34.90</span>/month</strong>
+        </p>
+      </div>
+
+      <button type="submit" class="btn btn-primary">
+        Continue to Payment
+      </button>
+    </form>
+
+    <div class="camera-examples">
+      <p><strong>Examples:</strong></p>
+      <ul style="margin: 0; padding-left: 1.5rem;">
+        <li>1 camera = $34.90/month</li>
+        <li>5 cameras = $174.50/month</li>
+        <li>10 cameras = $340.00/month</li>
+      </ul>
+    </div>
+
+    <p style="margin-top: 1.5rem; font-size: 0.9rem; text-align: center; color: rgba(255, 255, 255, 0.6);">
+      <a href="{{ url_for('verify_email_for_payment') }}" style="color: white; text-decoration: underline;">← Back</a>
+    </p>
+  </div>
+</main>
+
+<script>
+  function updateTotal() {
+    const numCameras = document.getElementById('num_cameras').value;
+    const totalCost = (numCameras * 34.90).toFixed(2);
+    
+    document.getElementById('camera-count').textContent = numCameras;
+    document.getElementById('total-cost').textContent = totalCost;
+  }
+</script>
+{% endblock %}

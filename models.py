@@ -4,6 +4,8 @@ from datetime import datetime, timedelta
 import bcrypt
 import secrets
 import string
+import sqlite3
+from contextlib import contextmanager
 
 db = SQLAlchemy()
 
@@ -21,12 +23,15 @@ class User(UserMixin, db.Model):
     verification_code = db.Column(db.String(6), nullable=True)
     verification_code_expires = db.Column(db.DateTime, nullable=True)
     
-    # Subscription fields (MAKE SURE ALL THESE ARE INCLUDED)
+    # Subscription fields
     stripe_customer_id = db.Column(db.String(100), nullable=True)
     stripe_subscription_id = db.Column(db.String(100), nullable=True)
     subscription_status = db.Column(db.String(50), nullable=True)
     subscription_start_date = db.Column(db.DateTime, nullable=True)
     subscription_end_date = db.Column(db.DateTime, nullable=True)
+    
+    # Camera plan field (NEW)
+    num_cameras = db.Column(db.Integer, default=1, nullable=False)
     
     # Keep old fields for compatibility
     has_paid = db.Column(db.Boolean, default=False, nullable=False)
@@ -67,7 +72,122 @@ class User(UserMixin, db.Model):
     @property
     def has_active_subscription(self):
         """Check if user has an active subscription"""
-        return self.subscription_status == 'active'
+        return self.subscription_status in ['active', 'incomplete']
+    
+    @property
+    def monthly_cost(self):
+        """Calculate monthly cost based on number of cameras"""
+        return self.num_cameras * 1.00  # $1 per camera
     
     def __repr__(self):
         return f'<User {self.email}>'
+
+import sqlite3
+
+class CameraDatabase:
+    def __init__(self, db_path='cameras.db'):
+        self.db_path = db_path
+        self.init_db()
+    
+    def init_db(self):
+        """Initialize the database with the cameras table"""
+        conn = sqlite3.connect(self.db_path)
+        try:
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS cameras (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    link TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            conn.commit()
+        finally:
+            conn.close()
+    
+    def add_camera(self, name, link):
+        """Add a new camera to the database"""
+        conn = sqlite3.connect(self.db_path)
+        conn.row_factory = sqlite3.Row
+        try:
+            cursor = conn.execute(
+                'INSERT INTO cameras (name, link) VALUES (?, ?)',
+                (name, link)
+            )
+            conn.commit()
+            return cursor.lastrowid
+        except Exception as e:
+            conn.rollback()
+            raise e
+        finally:
+            conn.close()
+    
+    def get_all_cameras(self):
+        """Get all cameras from the database"""
+        conn = sqlite3.connect(self.db_path)
+        conn.row_factory = sqlite3.Row
+        try:
+            cursor = conn.execute('SELECT * FROM cameras ORDER BY name')
+            cameras = cursor.fetchall()
+            return [dict(camera) for camera in cameras]
+        finally:
+            conn.close()
+    
+    def search_cameras(self, query):
+        """Search cameras by name or link"""
+        conn = sqlite3.connect(self.db_path)
+        conn.row_factory = sqlite3.Row
+        try:
+            cursor = conn.execute(
+                'SELECT * FROM cameras WHERE name LIKE ? OR link LIKE ? ORDER BY name',
+                (f'%{query}%', f'%{query}%')
+            )
+            cameras = cursor.fetchall()
+            return [dict(camera) for camera in cameras]
+        finally:
+            conn.close()
+    
+    def get_camera_by_id(self, camera_id):
+        """Get a specific camera by ID"""
+        conn = sqlite3.connect(self.db_path)
+        conn.row_factory = sqlite3.Row
+        try:
+            cursor = conn.execute(
+                'SELECT * FROM cameras WHERE id = ?',
+                (camera_id,)
+            )
+            camera = cursor.fetchone()
+            return dict(camera) if camera else None
+        finally:
+            conn.close()
+    
+    def update_camera(self, camera_id, name, link):
+        """Update an existing camera"""
+        conn = sqlite3.connect(self.db_path)
+        conn.row_factory = sqlite3.Row
+        try:
+            cursor = conn.execute(
+                'UPDATE cameras SET name = ?, link = ? WHERE id = ?',
+                (name, link, camera_id)
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+        except Exception as e:
+            conn.rollback()
+            raise e
+        finally:
+            conn.close()
+    
+    def delete_camera(self, camera_id):
+        """Delete a camera by ID"""
+        conn = sqlite3.connect(self.db_path)
+        conn.row_factory = sqlite3.Row
+        try:
+            cursor = conn.execute('DELETE FROM cameras WHERE id = ?', (camera_id,))
+            conn.commit()
+            return cursor.rowcount > 0
+        except Exception as e:
+            conn.rollback()
+            raise e
+        finally:
+            conn.close()

@@ -1,7 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, session, current_app
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from flask_mail import Mail, Message
-from models import db, User
+from models import db, User, CameraDatabase
 from config import Config
 import stripe
 import secrets
@@ -13,12 +13,14 @@ from dotenv import load_dotenv
 import redis
 import json
 import threading
-
+import cv2
 from pathlib import Path
 """Basic connection example.
 """
 
 import redis
+
+camera_db = CameraDatabase()
 
 redis_client = redis.Redis(
     host='redis-10368.c83.us-east-1-2.ec2.redns.redis-cloud.com',
@@ -48,7 +50,6 @@ title='Security Monitoring'
 triggers = 'danger, bad'
 reporter = os.getenv('MAIL_USERNAME')
 
-import cv2
 print(cv2.getBuildInformation())
 
 os.environ["OPENCV_FFMPEG_DEBUG"] = "1"
@@ -472,7 +473,7 @@ def verify_email_for_payment():
                 session['email_verified'] = True
                 
                 flash('Email verified successfully! Please complete payment to create your account.', 'success')
-                return redirect(url_for('payment'))
+                return redirect(url_for('select_cameras'))
             else:
                 flash('Invalid verification code.', 'error')
         
@@ -491,7 +492,6 @@ def verify_email_for_payment():
     
     return render_template('verify_email_for_payment.html', email=registration_data['email'])
 
-
 @app.route('/payment', methods=['GET', 'POST'])
 def payment():
     """Payment page - creates user only after payment confirmation"""
@@ -505,23 +505,34 @@ def payment():
         flash('Please verify your email first.', 'error')
         return redirect(url_for('verify_email_for_payment'))
     
+    # Check if cameras were selected
+    if 'num_cameras' not in session:
+        flash('Please select your camera plan first.', 'error')
+        return redirect(url_for('select_cameras'))
+    
     registration_data = session['registration_data']
+    num_cameras = session['num_cameras']
+    
+    # Calculate total cost (assuming $1 per camera per month)
+    base_price = 1.00
+    total_cost = base_price * num_cameras
     
     if request.method == 'POST':
         try:
-            # Create Stripe checkout session
+            # Create Stripe checkout session with quantity
             checkout_session = stripe.checkout.Session.create(
                 payment_method_types=['card'],
                 line_items=[{
-                    'price': 'price_1Rkd2ZFr9wM1tN4f7UBbwR1y',  # Replace with your actual price_id
-                    'quantity': 1,
+                    'price': 'price_1Rkd2ZFr9wM1tN4f7UBbwR1y',  # Your price ID
+                    'quantity': num_cameras,  # This multiplies the price by number of cameras
                 }],
                 mode='subscription',
                 success_url=url_for('payment_success', _external=True),
                 cancel_url=url_for('payment_cancel', _external=True),
                 customer_email=registration_data['email'],
                 metadata={
-                    'registration_data': json.dumps(registration_data)
+                    'registration_data': json.dumps(registration_data),
+                    'num_cameras': str(num_cameras)  # Store camera count in metadata
                 }
             )
             
@@ -529,9 +540,15 @@ def payment():
             
         except stripe.error.StripeError as e:
             flash(f'Payment error: {str(e)}', 'error')
-            return render_template('payment.html', user_data=registration_data)
+            return render_template('payment.html', 
+                                 user_data=registration_data, 
+                                 num_cameras=num_cameras,
+                                 total_cost=total_cost)
     
-    return render_template('payment.html', user_data=registration_data)
+    return render_template('payment.html', 
+                         user_data=registration_data, 
+                         num_cameras=num_cameras,
+                         total_cost=total_cost)
 
 @app.route('/payment-success')
 def payment_success():
@@ -597,6 +614,7 @@ def handle_checkout_completed(session):
         try:
             # Get registration data from session metadata
             registration_data = json.loads(session['metadata']['registration_data'])
+            num_cameras = int(session['metadata'].get('num_cameras', 1))
             print(f"Registration data found: {registration_data}")
             
             # Check if user already exists
@@ -617,6 +635,7 @@ def handle_checkout_completed(session):
                 has_paid=True,  # IMPORTANT: Set has_paid to True
                 payment_date=datetime.utcnow()
             )
+            user.num_cameras = num_cameras
             user.set_password(registration_data['password'])
             
             db.session.add(user)
@@ -1734,3 +1753,132 @@ def enhanced_process_descriptions2():
     # Cleanup when streaming stops
     ai_worker_running = False
     logger.info("🛑 AI worker thread stopping")
+
+@app.route('/CameraDirectory')
+@login_required
+def CameraDirectory():
+    """Main page - shows all cameras"""
+    cameras = camera_db.get_all_cameras()
+    return render_template('CameraDirectory.html', cameras=cameras, search_query='')
+
+@app.route('/api/search')
+@login_required
+def api_search():
+    """API endpoint for live search"""
+    query = request.args.get('q', '').strip()
+    
+    if query:
+        cameras = camera_db.search_cameras(query)
+    else:
+        cameras = camera_db.get_all_cameras()
+    
+    return jsonify({
+        'cameras': cameras,
+        'count': len(cameras),
+        'query': query
+    })
+
+@app.route('/add_camera', methods=['POST'])
+@login_required
+def add_camera():
+    """Add a new camera"""
+    name = request.form.get('name', '').strip()
+    link = request.form.get('link', '').strip()
+    
+    # Validation
+    if not name:
+        flash('Camera name is required', 'error')
+        return redirect(url_for('index'))
+    
+    if not link:
+        flash('Camera link is required', 'error')
+        return redirect(url_for('index'))
+    
+    try:
+        camera_id = camera_db.add_camera(name, link)
+        flash(f'Camera "{name}" added successfully!', 'success')
+    except Exception as e:
+        flash(f'Error adding camera: {str(e)}', 'error')
+    
+    return redirect(url_for('CameraDirectory'))
+
+@app.route('/update_camera/<int:camera_id>', methods=['POST'])
+@login_required
+def update_camera(camera_id):
+    """Update an existing camera"""
+    name = request.form.get('name', '').strip()
+    link = request.form.get('link', '').strip()
+    
+    # Validation
+    if not name:
+        flash('Camera name is required', 'error')
+        return redirect(url_for('index'))
+    
+    if not link:
+        flash('Camera link is required', 'error')
+        return redirect(url_for('index'))
+    
+    try:
+        if camera_db.update_camera(camera_id, name, link):
+            flash(f'Camera "{name}" updated successfully!', 'success')
+        else:
+            flash('Camera not found', 'error')
+    except Exception as e:
+        flash(f'Error updating camera: {str(e)}', 'error')
+    
+    return redirect(url_for('CameraDirectory'))
+
+@app.route('/delete_camera/<int:camera_id>', methods=['POST'])
+@login_required
+def delete_camera(camera_id):
+    """Delete a camera"""
+    try:
+        # Get camera name for the flash message
+        camera = camera_db.get_camera_by_id(camera_id)
+        if camera and camera_db.delete_camera(camera_id):
+            flash(f'Camera "{camera["name"]}" deleted successfully!', 'success')
+        else:
+            flash('Camera not found', 'error')
+    except Exception as e:
+        flash(f'Error deleting camera: {str(e)}', 'error')
+    
+    return redirect(url_for('CameraDirectory'))
+
+@app.route('/get_camera/<int:camera_id>')
+@login_required
+def get_camera(camera_id):
+    """API endpoint to get camera data for editing"""
+    camera = camera_db.get_camera_by_id(camera_id)
+    if camera:
+        return jsonify(camera)
+    return jsonify({'error': 'Camera not found'}), 404
+
+@app.route('/select-cameras', methods=['GET', 'POST'])
+def select_cameras():
+    """Camera selection page"""
+    # Check if we have registration data and email verification
+    if 'registration_data' not in session or not session.get('email_verified'):
+        flash('Please complete registration and email verification first.', 'error')
+        return redirect(url_for('register'))
+    
+    registration_data = session['registration_data']
+    
+    if request.method == 'POST':
+        num_cameras = request.form.get('num_cameras')
+        
+        try:
+            num_cameras = int(num_cameras)
+            if num_cameras < 1 or num_cameras > 50:  # Set reasonable limits
+                flash('Number of cameras must be between 1 and 50.', 'error')
+                return render_template('select_cameras.html', user_data=registration_data)
+        except (ValueError, TypeError):
+            flash('Please enter a valid number of cameras.', 'error')
+            return render_template('select_cameras.html', user_data=registration_data)
+        
+        # Store camera count in session
+        session['num_cameras'] = num_cameras
+        
+        flash(f'Selected {num_cameras} camera(s). Proceed to payment.', 'success')
+        return redirect(url_for('payment'))
+    
+    return render_template('select_cameras.html', user_data=registration_data)

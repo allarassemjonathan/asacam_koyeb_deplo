@@ -86,19 +86,18 @@
 
 <main class="center-wrapper">
   <div class="modal-content">
-    <div class="warning-icon">⚠️</div>
     
     {% if pending_cancellation %}
       <!-- User already has pending cancellation -->
-      <h2 style="margin-top: 0; color: #ffc107;">Subscription Cancellation Pending</h2>
+      <h2 style="margin-top: 0; color: #ffffff;">Subscription Cancellation Pending</h2>
       
       <p style="color: rgba(255, 255, 255, 0.8); margin-bottom: 1.5rem;">
         Hi {{ current_user.first_name }}, your subscription is set to cancel at the end of your billing period.
       </p>
 
       <div class="pending-notice">
-        <p style="margin: 0; font-size: 0.9rem; color: rgba(255, 193, 7, 0.9);">
-          <strong>📅 Current Status:</strong> Your subscription will end on {{ current_user.subscription_end_date.strftime('%B %d, %Y') if current_user.subscription_end_date else 'your next billing date' }}. You have full access until then.
+        <p style="margin: 0; font-size: 0.9rem; color: rgba(255, 255, 255, 0.9);">
+          <strong> Current Status:</strong> Your subscription will end on {{ current_user.subscription_end_date.strftime('%B %d, %Y') if current_user.subscription_end_date else 'your next billing date' }}. You have full access until then.
         </p>
       </div>
 
@@ -122,21 +121,21 @@
 
     {% else %}
       <!-- First time cancelling -->
-      <h2 style="margin-top: 0; color: #dc3545;">Cancel Subscription?</h2>
+      <h2 style="margin-top: 0; color: #ffffff;">Cancel Subscription?</h2>
       
       <p style="color: rgba(255, 255, 255, 0.8); margin-bottom: 1.5rem;">
         Hi {{ current_user.first_name }}, how would you like to cancel your subscription?
       </p>
 
       <div class="cancellation-option">
-        <h4 style="margin: 0 0 0.5rem; color: #ffc107;">Option 1: Cancel at Period End</h4>
+        <h4 style="margin: 0 0 0.5rem; color: #ffffff;">Option 1: Cancel at Period End</h4>
         <p style="margin: 0; font-size: 0.9rem; color: rgba(255, 255, 255, 0.8);">
           Keep access until your next billing date, then cancel. No immediate loss of access.
         </p>
       </div>
 
       <div class="cancellation-option">
-        <h4 style="margin: 0 0 0.5rem; color: #dc3545;">Option 2: Cancel Immediately</h4>
+        <h4 style="margin: 0 0 0.5rem; color: #ffffff;">Option 2: Cancel Immediately</h4>
         <p style="margin: 0; font-size: 0.9rem; color: rgba(255, 255, 255, 0.8);">
           Cancel right now and lose access immediately. You can reactivate anytime.
         </p>
@@ -158,7 +157,7 @@
     {% endif %}
 
     <p style="margin-top: 2rem; font-size: 0.9rem; color: rgba(255, 255, 255, 0.6);">
-      Monthly App Access - $34.90/month
+      Monthly App Access
     </p>
   </div>
 </main>

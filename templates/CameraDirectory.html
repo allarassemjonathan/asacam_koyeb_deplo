@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Camera Manager - ASACAM</title>
+    <link rel="preconnect" href="https://fonts.gstatic.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<style>
+    /* Import the same font */
+@import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600&display=swap');
+
+/* ---- Base layout ---- */
+* { 
+  box-sizing: border-box; 
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font: 400 1rem/1.6 'Chakra Petch', sans-serif;
+  color: #f5f5f5;
+  background: #000;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+
+  /* ENTRY ANIMATION */
+  opacity: 0;
+  transform: translateY(30px);
+  animation: intro .6s ease-out forwards .3s;
+}
+
+@keyframes intro { 
+  to { 
+    opacity: 1; 
+    transform: none;
+  } 
+}
+
+/* ---- Particles background ---- */
+#particles-js {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* ---- Nav ---- */
+nav {
+  position: fixed;
+  top: 0;
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 2rem;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(8px);
+  z-index: 1000;
+}
+
+.logo {
+  font-size: 2rem;
+  font-weight: 600;
+  letter-spacing: .08em;
+  color: #fff;
+}
+
+.nav-links {
+  display: flex;
+  gap: 2rem;
+}
+
+.nav-links a {
+  color: #fff;
+  text-decoration: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  transition: 0.2s;
+}
+
+.nav-links a:hover,
+.nav-links a.active {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* ---- Main Container ---- */
+.container {
+  flex: 1;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  margin-top: 85px;
+  padding: 2rem;
+  position: relative;
+  z-index: 1;
+}
+
+/* ---- Page Title ---- */
+h1 {
+  font-size: 3.5rem;
+  margin-bottom: 2rem;
+  background: linear-gradient(45deg, #fff, #888);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-align: center;
+}
+
+h2 {
+  color: #fff;
+  margin-bottom: 1rem;
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+/* ---- Flash Messages ---- */
+.flash-messages {
+  margin-bottom: 2rem;
+}
+
+.flash-message {
+  padding: 1rem 1.5rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 400;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.flash-success {
+  background: rgba(34, 197, 94, 0.1);
+  color: #22c55e;
+  border-color: rgba(34, 197, 94, 0.3);
+}
+
+.flash-error {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.flash-info {
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+.flash-message button {
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  cursor: pointer;
+  color: inherit;
+  padding: 0;
+  margin-left: 1rem;
+  transition: opacity 0.3s ease;
+}
+
+.flash-message button:hover {
+  opacity: 0.7;
+}
+
+/* ---- Card Sections ---- */
+.search-section,
+.add-section,
+.cameras-section {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 2rem;
+  border-radius: 8px;
+  margin-bottom: 2rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: 0.3s;
+}
+
+.search-section:hover,
+.add-section:hover,
+.cameras-section:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* ---- Search Form ---- */
+.search-form {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.search-input {
+  flex: 1;
+  min-width: 300px;
+  padding: 0.875rem 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  color: #fff;
+  font-size: 1rem;
+  font-family: 'Chakra Petch', sans-serif;
+  transition: all 0.3s ease;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.1);
+}
+
+.search-input::placeholder {
+  color: #666;
+}
+
+/* ---- Forms ---- */
+.camera-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 1.2rem;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 0.4rem;
+  font-size: 0.9rem;
+  color: #bcbcbc;
+  font-weight: 500;
+}
+
+.form-group input,
+.form-group textarea {
+  width: 100%;
+  padding: 0.875rem 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  color: #fff;
+  font-size: 1rem;
+  font-family: 'Chakra Petch', sans-serif;
+  transition: all 0.3s ease;
+  box-sizing: border-box;
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.1);
+}
+
+.form-group input::placeholder,
+.form-group textarea::placeholder {
+  color: #666;
+  font-style: italic;
+}
+
+/* ---- Buttons ---- */
+.btn {
+  display: inline-block;
+  padding: 1rem 2rem;
+  border-radius: 9999px;
+  text-decoration: none;
+  font-weight: 600;
+  transition: 0.3s;
+  border: none;
+  cursor: pointer;
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 1rem;
+  text-align: center;
+}
+
+.btn:hover {
+  transform: translateY(-2px);
+}
+
+.btn.primary {
+  background: #fff;
+  color: #000;
+  border: 2px solid #fff;
+}
+
+.btn.primary:hover {
+  background: transparent;
+  color: #fff;
+  transform: translateY(-2px);
+}
+
+.btn.secondary {
+  background: transparent;
+  color: #fff;
+  border: 2px solid #fff;
+}
+
+.btn.secondary:hover {
+  background: #fff;
+  color: #000;
+  transform: translateY(-2px);
+}
+
+.btn.danger {
+  background: #c0392b;
+  color: #fff;
+  border: 2px solid #c0392b;
+}
+
+.btn.danger:hover {
+  background: transparent;
+  color: #c0392b;
+  transform: translateY(-2px);
+}
+
+/* ---- Form Actions ---- */
+.form-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+  margin-top: 1.5rem;
+}
+
+/* ---- Cameras Grid ---- */
+.cameras-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 2rem;
+  margin-top: 2rem;
+}
+
+.camera-card {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 2rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: 0.3s;
+}
+
+.camera-card:hover {
+  transform: translateY(-5px);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.camera-info h3 {
+  color: #fff;
+  margin-bottom: 1rem;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.camera-info p {
+  margin-bottom: 0.5rem;
+  color: #888;
+}
+
+.camera-info a {
+  color: #fff;
+  text-decoration: none;
+  word-break: break-all;
+  transition: color 0.3s ease;
+}
+
+.camera-info a:hover {
+  color: #ccc;
+}
+
+.camera-info small {
+  color: #666;
+  font-size: 0.8rem;
+}
+
+.camera-actions {
+  margin-top: 1.5rem;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.camera-actions .btn {
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  border-radius: 6px;
+}
+
+.no-cameras {
+  text-align: center;
+  padding: 3rem;
+  color: #888;
+}
+
+.no-cameras p {
+  margin-bottom: 1.5rem;
+  font-size: 1.1rem;
+}
+
+.count {
+  color: #888;
+  font-weight: 400;
+}
+
+/* ---- Modal ---- */
+.modal {
+  display: none;
+  position: fixed;
+  z-index: 999;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  background-color: rgba(0, 0, 0, 0.85);
+  font-family: 'Chakra Petch', sans-serif;
+}
+
+.modal-content {
+  background-color: #18181b;
+  margin: 8% auto;
+  padding: 1rem;
+  border-radius: 10px;
+  width: 90%;
+  max-width: 500px;
+  color: #e0e0e0;
+  box-shadow: 0 0 30px rgba(255, 255, 255, 0.05);
+  position: relative;
+  box-sizing: border-box;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from { transform: scale(0.9); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #e0e0e0;
+}
+
+.close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: #aaa;
+  cursor: pointer;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+}
+
+.close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.modal .camera-form {
+  padding: 0 1rem;
+}
+
+.modal .form-group input {
+  background-color: #000;
+  color: #fff;
+  border: 1px solid #444;
+}
+
+.modal .form-group input:focus {
+  background-color: #000;
+  color: #fff;
+  border: 1px solid white;
+  outline: none;
+  box-shadow: none;
+}
+
+/* ---- Responsive Design ---- */
+@media (max-width: 768px) {
+  nav {
+    padding: 1rem;
+  }
+
+  .nav-links {
+    gap: 1rem;
+  }
+
+  .container {
+    padding: 1rem;
+  }
+
+  h1 {
+    font-size: 2.5rem;
+  }
+
+  .search-form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .search-input {
+    min-width: unset;
+  }
+
+  .cameras-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .camera-actions {
+    flex-direction: column;
+  }
+
+  .btn {
+    text-align: center;
+  }
+
+  .modal-content {
+    width: 95%;
+    margin: 10% auto;
+  }
+
+  .form-actions {
+    flex-direction: column;
+  }
+}
+
+/* ---- Accessibility ---- */
+.btn:focus,
+.nav-links a:focus {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+  outline: none;
+  border: 1px solid white;
+  box-shadow: none;
+}
+
+/* ---- Print Styles ---- */
+@media print {
+  nav,
+  .form-actions,
+  .camera-actions {
+    display: none;
+  }
+
+  body {
+    color: #000;
+    background: #fff;
+  }
+
+  .search-section,
+  .add-section,
+  .cameras-section,
+  .camera-card {
+    background: #fff;
+    border: 1px solid #ccc;
+  }
+}
+</style>
+<body>
+    <div id="particles-js"></div>
+    
+    <nav>
+    <div class="logo">ASACAM</div>
+    <div class="nav-links">
+      <a href="/" class="active">Home</a>
+      <a href="/CameraDirectory">Cameras</a>
+      <a href="/logout">Logout</a>
+    </div>
+    </nav>
+
+    <div class="container">
+        <h1>Asacam Manager</h1>
+        
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-messages">
+                    {% for category, message in messages %}
+                        <div class="flash-message flash-{{ category }}">
+                            {{ message }}
+                            <button onclick="this.parentElement.style.display='none'">&times;</button>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <!-- Live Search Bar -->
+        <div class="search-section">
+            <h2>Search Cameras</h2>
+            <div class="search-form">
+                <input 
+                    type="text" 
+                    id="liveSearch"
+                    placeholder="Search cameras by name or link..." 
+                    value="{{ search_query or '' }}"
+                    class="search-input"
+                    autocomplete="off"
+                >
+                <div class="search-status" id="searchStatus"></div>
+            </div>
+        </div>
+
+        <!-- Cameras List -->
+        <div class="cameras-section">
+            <h2 id="camerasTitle">
+                All Cameras
+                <span class="count" id="camerasCount">({{ cameras|length }})</span>
+            </h2>
+            
+            <div id="camerasContainer">
+                {% if cameras %}
+                    <div class="cameras-grid" id="camerasGrid">
+                        {% for camera in cameras %}
+                            <div class="camera-card" data-id="{{ camera.id }}">
+                                <div class="camera-info">
+                                    <h3>{{ camera.name }}</h3>
+                                    <p>
+                                        <a href="{{ camera.link }}" target="_blank" rel="noopener noreferrer">
+                                            {{ camera.link }}
+                                        </a>
+                                    </p>
+                                    <small>Added: {{ camera.created_at }}</small>
+                                </div>
+                                <div class="camera-actions">
+                                    <button 
+                                        class="btn secondary"
+                                        data-camera-id="{{ camera.id }}"
+                                        onclick="editCamera(this)"
+                                    >
+                                        Edit
+                                    </button>
+                                    <form 
+                                        method="POST" 
+                                        action="{{ url_for('delete_camera', camera_id=camera.id) }}" 
+                                        onsubmit="return confirm('Are you sure you want to delete {{ camera.name }}?')"
+                                        style="display: inline;"
+                                    >
+                                        <button type="submit" class="btn danger">Delete</button>
+                                    </form>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="no-cameras" id="noCameras">
+                        <p>No cameras added yet. Add your first camera above!</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+                <!-- Add Camera Form -->
+        <div class="add-section">
+            <h2>Add New Camera</h2>
+            <form method="POST" action="{{ url_for('add_camera') }}" class="camera-form">
+                <div class="form-group">
+                    <label for="name">Camera Name</label>
+                    <input 
+                        type="text" 
+                        id="name" 
+                        name="name" 
+                        required 
+                        placeholder="Living Room Camera"
+                    >
+                </div>
+                <div class="form-group">
+                    <label for="link">Camera Link</label>
+                    <input 
+                        type="url" 
+                        id="link" 
+                        name="link" 
+                        required 
+                        placeholder="http://192.168.1.100:8080/stream"
+                    >
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn primary">Add Camera</button>
+                </div>
+            </form>
+        </div>
+        
+    </div>
+
+    <!-- Edit Camera Modal -->
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Edit Camera</h2>
+                <button onclick="closeModal()" class="close">&times;</button>
+            </div>
+            <form id="editForm" method="POST" class="camera-form">
+                <div class="form-group">
+                    <label for="editName">Camera Name</label>
+                    <input type="text" id="editName" name="name" required>
+                </div>
+                <div class="form-group">
+                    <label for="editLink">Camera Link</label>
+                    <input type="url" id="editLink" name="link" required>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn primary">Update Camera</button>
+                    <button type="button" onclick="closeModal()" class="btn secondary">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Particles.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/particles.js@2.0.0/particles.min.js"></script>
+    <script>
+        // Particles.js initialization
+        particlesJS.load('particles-js', '{{ url_for("static", filename="particles.json") }}', function() {
+            console.log('particles.js loaded');
+        });
+        
+        // Fallback if particles.json fails to load
+        setTimeout(function() {
+            if (!window.pJSDom || window.pJSDom.length === 0) {
+                particlesJS('particles-js', {
+                    "particles": {
+                        "number": {"value": 80, "density": {"enable": true, "value_area": 800}},
+                        "color": {"value": "#fff"},
+                        "shape": {"type": "circle"},
+                        "opacity": {"value": 0.5, "random": false},
+                        "size": {"value": 2, "random": true},
+                        "line_linked": {"enable": true, "distance": 150, "color": "#fff", "opacity": 0.2, "width": 1},
+                        "move": {"enable": true, "speed": 1.2, "direction": "none", "random": false, "straight": false, "out_mode": "out", "bounce": false}
+                    },
+                    "interactivity": {
+                        "detect_on": "canvas",
+                        "events": {"onhover": {"enable": true, "mode": "repulse"}, "onclick": {"enable": true, "mode": "push"}, "resize": true},
+                        "modes": {"repulse": {"distance": 100, "duration": 0.4}, "push": {"particles_nb": 4}}
+                    },
+                    "retina_detect": true
+                });
+            }
+        }, 1000);
+
+        // Live Search Functionality
+        let searchTimeout;
+        const searchInput = document.getElementById('liveSearch');
+        const searchStatus = document.getElementById('searchStatus');
+        const camerasContainer = document.getElementById('camerasContainer');
+        const camerasTitle = document.getElementById('camerasTitle');
+        const camerasCount = document.getElementById('camerasCount');
+
+        // Debounced search function
+        function performSearch(query) {
+            // Show loading status
+            searchStatus.textContent = 'Searching...';
+            searchStatus.style.color = '#888';
+
+            fetch(`/api/search?q=${encodeURIComponent(query)}`)
+                .then(response => response.json())
+                .then(data => {
+                    updateCamerasList(data.cameras, data.query, data.count);
+                    
+                    // Update status
+                    if (data.query) {
+                        searchStatus.textContent = `Found ${data.count} result(s)`;
+                        searchStatus.style.color = data.count > 0 ? '#22c55e' : '#ef4444';
+                    } else {
+                        searchStatus.textContent = '';
+                    }
+                })
+                .catch(error => {
+                    console.error('Search error:', error);
+                    searchStatus.textContent = 'Search failed';
+                    searchStatus.style.color = '#ef4444';
+                });
+        }
+
+        // Update the cameras list display
+        function updateCamerasList(cameras, query, count) {
+            // Update title
+            if (query) {
+                camerasTitle.innerHTML = `Search Results for "${query}" <span class="count">(${count})</span>`;
+            } else {
+                camerasTitle.innerHTML = `All Cameras <span class="count">(${count})</span>`;
+            }
+
+            // Clear current content
+            camerasContainer.innerHTML = '';
+
+            if (cameras.length > 0) {
+                // Create cameras grid
+                const grid = document.createElement('div');
+                grid.className = 'cameras-grid';
+                grid.id = 'camerasGrid';
+
+                cameras.forEach(camera => {
+                    const card = document.createElement('div');
+                    card.className = 'camera-card';
+                    card.setAttribute('data-id', camera.id);
+                    
+                    card.innerHTML = `
+                        <div class="camera-info">
+                            <h3>${escapeHtml(camera.name)}</h3>
+                            <p>
+                                <a href="${escapeHtml(camera.link)}" target="_blank" rel="noopener noreferrer">
+                                    ${escapeHtml(camera.link)}
+                                </a>
+                            </p>
+                            <small>Added: ${camera.created_at}</small>
+                        </div>
+                        <div class="camera-actions">
+                            <button 
+                                class="btn secondary"
+                                data-camera-id="${camera.id}"
+                                onclick="editCamera(this)"
+                            >
+                                Edit
+                            </button>
+                            <form 
+                                method="POST" 
+                                action="/delete/${camera.id}" 
+                                onsubmit="return confirm('Are you sure you want to delete ${escapeHtml(camera.name)}?')"
+                                style="display: inline;"
+                            >
+                                <button type="submit" class="btn danger">Delete</button>
+                            </form>
+                        </div>
+                    `;
+                    
+                    grid.appendChild(card);
+                });
+
+                camerasContainer.appendChild(grid);
+            } else {
+                // Show no cameras message
+                const noCameras = document.createElement('div');
+                noCameras.className = 'no-cameras';
+                noCameras.id = 'noCameras';
+                
+                if (query) {
+                    noCameras.innerHTML = `
+                        <p>No cameras found matching your search.</p>
+                        <button onclick="clearSearch()" class="btn primary">View All Cameras</button>
+                    `;
+                } else {
+                    noCameras.innerHTML = '<p>No cameras added yet. Add your first camera above!</p>';
+                }
+                
+                camerasContainer.appendChild(noCameras);
+            }
+        }
+
+        // Clear search function
+        function clearSearch() {
+            searchInput.value = '';
+            searchInput.focus();
+            performSearch('');
+        }
+
+        // Escape HTML to prevent XSS
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Live search event listener
+        searchInput.addEventListener('input', function() {
+            const query = this.value.trim();
+            
+            // Clear previous timeout
+            clearTimeout(searchTimeout);
+            
+            // Set new timeout for debouncing (300ms delay)
+            searchTimeout = setTimeout(() => {
+                performSearch(query);
+            }, 300);
+        });
+
+        // Edit camera functionality
+        function editCamera(button) {
+            const cameraId = button.getAttribute('data-camera-id');
+            
+            fetch(`/get_camera/${cameraId}`)
+                .then(response => response.json())
+                .then(camera => {
+                    document.getElementById('editName').value = camera.name;
+                    document.getElementById('editLink').value = camera.link;
+                    document.getElementById('editForm').action = `/update/${cameraId}`;
+                    document.getElementById('editModal').style.display = 'block';
+                })
+                .catch(error => {
+                    alert('Error loading camera data');
+                    console.error('Error:', error);
+                });
+        }
+
+        function closeModal() {
+            document.getElementById('editModal').style.display = 'none';
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('editModal');
+            if (event.target === modal) {
+                closeModal();
+            }
+        }
+
+        // Focus search input on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            searchInput.focus();
+        });
+    </script>
+</body>
+</html>
