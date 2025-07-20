@@ -34,19 +34,10 @@
       <div class="cta-buttons">
         <button class="btn secondary" id="startMissionBtn" type="button" style="font-family: 'Chakra Petch', sans-serif;">Start Mission</button>
         <button class="btn secondary" id="ViewStreamsBtn" type="button" style="font-family: 'Chakra Petch', sans-serif;">View Streams</button>
-        <a href="{{ url_for('cancel_subscription') }}" style="
-    color: #ffffff;
-    text-decoration: none;
-    font-size: 0.9rem;
-    background: transparent;
-    padding: 0.5rem 1rem;
-    border-radius: 6px;
-    border: 1px solid rgb(255, 255, 255);
-    transition: all 0.3s ease;
-  " onmouseover="this.style.background='rgba(220, 53, 69, 0.1)'" 
-     onmouseout="this.style.background='rgba(0, 0, 0, 0.8)'">
-    Cancel Subscription
-  </a>
+        <!-- <button class="btn secondary" id="cancelSubscriptionBtn" onclick="window.location.href='{{ url_for('cancel_subscription') }}'" type="button" style="font-family: 'Chakra Petch', sans-serif;">
+  Manage Subscription
+</button> -->
+
       </div>
     </div>
 

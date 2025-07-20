@@ -274,7 +274,7 @@ def login():
                 set_user_email_for_session(session_id, user.email)
                 
                 print(f"✅ User logged in successfully: {user.email}")
-                return redirect(url_for('home'))
+                return redirect(url_for('CameraDirectory'))
         else:
             flash('Invalid email or password.', 'error')
     
