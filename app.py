@@ -1402,9 +1402,16 @@ def is_alert_response(ai_response):
     global triggers
     """Checks if the AI is actually alerting us about something serious"""
     print('triggers', triggers)
-    keywords = triggers.split(', ')
+    puncs = ',.;'
+    for punc in puncs:
+        triggers = triggers.replace(punc, '')
+    keywords = triggers.split(' ')
+
+    for punc in puncs:
+        ai_response = ai_response.replace(punc, '')
     ai_words = ai_response.split(' ')
     
+    print('match?', keywords, ai_words)
     # # Stuff we actually care about
     # positive_alerts = [
     #     'alert', 'danger', 'emergency', 'help needed', 'call for help',
@@ -1478,10 +1485,9 @@ def interpret_frame_with_openai(frame):
             ai_response = result['choices'][0]['message']['content']
             print(f"🤖 AI Response: {ai_response}")
             
-            # Use improved alert detection
-            if is_alert_response(ai_response):
-                print("AI detected smthg")
-                
+            # # Use improved alert detection
+            # if is_alert_response(ai_response):
+            #     print("AI detected smthg")
             
             return result
         else:
@@ -1617,7 +1623,7 @@ def generate_summary():
 def process_ai_results2():
     """Process AI results and add to Flask description queue"""
     global last_alert_email_time
-    
+    print('starting to exec ...')
     try:
         # Only process the most recent result
         latest_result = None
@@ -1657,9 +1663,13 @@ def process_ai_results2():
                         if not user_email:
                             for session_id, stored_email in user_email_storage.items():
                                 user_email = stored_email
+                                print('no email or waht', stored_email, user_email)
+                                if not user_email:
+                                    user_email = 'jonathanjerabe@gmail.com'
                                 break
                         
                         if user_email:
+                            print('i got here ')
                             logger.info(f"🚨 ALERT DETECTED - Sending email with image to {user_email}")
                             
                             # Send email with image in a separate thread
@@ -1673,6 +1683,7 @@ def process_ai_results2():
                             
                             last_alert_email_time = current_time
                         else:
+                            print(f'i got here {user_email}')
                             # Log the warning but DON'T add to transcript
                             logger.warning("🚨 ALERT DETECTED but no user email available")
                     else:
@@ -1741,6 +1752,7 @@ def enhanced_process_descriptions2():
                         logger.debug("AI queue busy")
                 
                 # Process any completed AI results
+                print('this better print the email stuff')
                 process_ai_results2()
                     
         except queue.Empty:
