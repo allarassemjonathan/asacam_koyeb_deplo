@@ -1463,7 +1463,7 @@ def interpret_frame_with_openai(frame):
                 "content": [
                     {
                         "type": "text",
-                        "text": prompt + "\n\nIMPORTANT: Only mention alerts, danger, or unusual activity if you actually detect something concerning. If everything looks normal and safe, simply describe what you see without using alert-related words."
+                        "text": prompt,
                     },
                     {
                         "type": "image_url",
